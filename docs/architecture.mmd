@@ -1,0 +1,173 @@
+graph TB
+    %% Styling
+    classDef ingestion fill:#FF6B6B,stroke:#C92A2A,stroke-width:3px,color:#fff
+    classDef broker fill:#4ECDC4,stroke:#0D7377,stroke-width:3px,color:#fff
+    classDef processing fill:#95E1D3,stroke:#38A895,stroke-width:3px,color:#000
+    classDef datastore fill:#FFA07A,stroke:#E85D3D,stroke-width:3px,color:#fff
+    classDef analysis fill:#DDA15E,stroke:#BC6C25,stroke-width:3px,color:#fff
+    classDef ui fill:#B8B8FF,stroke:#6A5ACD,stroke-width:3px,color:#000
+    classDef logic fill:#FFD93D,stroke:#F4B41A,stroke-width:3px,color:#000
+    classDef security fill:#FF6B9D,stroke:#C92A5A,stroke-width:3px,color:#fff
+    classDef infra fill:#90EE90,stroke:#228B22,stroke-width:3px,color:#000
+    classDef monitoring fill:#FFB347,stroke:#FF8C00,stroke-width:3px,color:#000
+    
+    %% Infrastructure & Security Layer
+    subgraph INFRA["🏗️ INFRASTRUCTURE & SECURITY"]
+        LB["Load Balancer<br/>─────────<br/>NGINX Plus<br/>Algorithm: Round-Robin<br/>Health Check: /health<br/>SSL Termination<br/>Rate Limit: 1000 req/min"]
+        
+        APIGW["API Gateway<br/>─────────<br/>Kong Gateway<br/>• Rate Limiting<br/>• API Versioning<br/>• Request Transform<br/>• Circuit Breaker<br/>Timeout: 30s"]
+        
+        AUTH["Auth Service<br/>─────────<br/>Keycloak<br/>OAuth 2.0 / OIDC<br/>SAML 2.0 Support<br/>MFA Enabled<br/>Session: 30 min"]
+        
+        WAF["Web Application Firewall<br/>─────────<br/>AWS WAF / Cloudflare<br/>• SQL Injection Block<br/>• XSS Prevention<br/>• DDoS Protection<br/>Rules: OWASP Core"]
+    end
+    
+    %% Monitoring & Observability
+    subgraph MONITORING["📊 MONITORING & OBSERVABILITY"]
+        PROM["Prometheus<br/>─────────<br/>Metrics Aggregation<br/>Scrape Interval: 15s<br/>Retention: 15 days<br/>AlertManager Integrated"]
+        
+        GRAFANA["Grafana Dashboards<br/>─────────<br/>• System Metrics<br/>• Business KPIs<br/>• SLA Tracking<br/>• Custom Alerts<br/>Refresh: 5s"]
+        
+        ELK["ELK Stack<br/>─────────<br/>Elasticsearch + Logstash<br/>+ Kibana<br/>Log Aggregation<br/>Index: review-logs-*<br/>Retention: 30 days"]
+        
+        JAEGER["Jaeger Tracing<br/>─────────<br/>Distributed Tracing<br/>Sampling: 10%<br/>Spans: All Services<br/>UI Port: 16686"]
+    end
+    
+    %% Ingestion Layer
+    subgraph INGESTION["🔵 INGESTION LAYER"]
+        API["REST API Service<br/>─────────<br/>POST /reviews<br/>GET /reviews/:id<br/>PUT /reviews/:id<br/>Port: 8080<br/>Replicas: 3<br/>Auto-Scale: 3-10"]
+        
+        WH["Webhooks Receiver<br/>─────────<br/>Shopify/WooCommerce<br/>Amazon Marketplace<br/>Port: 8081<br/>Retry: 3 attempts<br/>Timeout: 5s"]
+        
+        BATCH["Batch Processor<br/>─────────<br/>AWS S3 Connector<br/>Kaggle Dataset Sync<br/>CRON: */15 * * * *<br/>Batch Size: 10,000<br/>Parallel Jobs: 5"]
+    end
+    
+    %% Message Broker
+    subgraph BROKER["⚡ MESSAGE BROKER"]
+        KAFKA["Apache Kafka Cluster<br/>─────────<br/>Topic: raw-reviews<br/>Partitions: 12<br/>Replication: 3<br/>Retention: 7 days<br/>Bootstrap: kafka:9092"]
+        RMQ["RabbitMQ (Fallback)<br/>─────────<br/>Queue: reviews-dlq<br/>Exchange: reviews-fanout<br/>Port: 5672"]
+    end
+    
+    %% Processing Pipeline
+    subgraph PROCESSING["🔄 PROCESSING PIPELINE"]
+        PRE["Text Preprocessor<br/>─────────<br/>• Tokenization (spaCy)<br/>• Lemmatization<br/>• Stopword Removal<br/>• HTML Cleaning<br/>Lang: Python 3.11"]
+        
+        SENT["Sentiment Transformer<br/>─────────<br/>Model: distilbert-base<br/>-uncased-finetuned-sst-2<br/>HuggingFace Pipeline<br/>Output: Score ∈ [-1, 1]<br/>GPU: NVIDIA T4"]
+        
+        FACT["Truthfulness Checker<br/>─────────<br/>LLM: GPT-4-turbo<br/>Prompt: Fact-Verify<br/>Cross-ref: Knowledge Base<br/>Output: Confidence ∈ [0, 1]"]
+        
+        LOGIC["Auto-Publish Logic Gate<br/>─────────<br/>Condition: S ≥ 0.8<br/>Rule Engine: Drools<br/>IF sentiment.score ≥ 0.8<br/>AND fact_score ≥ 0.7<br/>THEN publish=true"]
+    end
+    
+    %% Data Layer
+    subgraph DATA["💾 DATA LAYER"]
+        ASTRA["DataStax Astra DB<br/>─────────<br/>Vector Store (384-dim)<br/>Collection: review_embeddings<br/>Model: all-MiniLM-L6-v2<br/>Similarity: Cosine<br/>API: Stargate REST<br/>Backup: Daily"]
+        
+        POSTGRES["PostgreSQL 15 Cluster<br/>─────────<br/>Schema: review_metadata<br/>Tables:<br/>• reviews (id, text, ts)<br/>• publish_status<br/>• sentiment_scores<br/>Indexes: B-tree, GiST<br/>Replication: Master-Slave<br/>Backup: Hourly WAL"]
+        
+        S3["AWS S3 Storage<br/>─────────<br/>Bucket: review-backups<br/>• Raw Data Archive<br/>• Model Checkpoints<br/>• Audit Logs<br/>Lifecycle: Glacier 90d<br/>Versioning: Enabled"]
+    end
+    
+    %% Analysis Tier
+    subgraph ANALYSIS["🧠 ANALYSIS & ORCHESTRATION"]
+        LANG["LangChain Orchestrator<br/>─────────<br/>Framework: LangChain 0.1<br/>Chains: RetrievalQA<br/>Memory: ConversationBuffer"]
+        
+        RAG["RAG Engine<br/>─────────<br/>Retriever: Astra Vector<br/>Top-K: 5 documents<br/>Reranker: Cross-Encoder<br/>Generator: GPT-4"]
+        
+        INSIGHTS["Product Improvement<br/>Suggestion Engine<br/>─────────<br/>Clustering: K-Means<br/>Topic Model: LDA<br/>Freq Analysis: TF-IDF"]
+    end
+    
+    %% User Interface
+    subgraph UI["🖥️ USER INTERFACE LAYER"]
+        ADMIN["Admin Moderation Panel<br/>─────────<br/>Framework: React 18<br/>Features:<br/>• Review Queue<br/>• Manual Override<br/>• Flag Management<br/>Auth: OAuth2 + JWT"]
+        
+        SELLER["Seller Insight Dashboard<br/>─────────<br/>Framework: Vue.js 3<br/>Charts: Chart.js + D3.js<br/>Visualizations:<br/>• Sentiment Trends<br/>• Word Clouds<br/>• Rating Distribution<br/>WebSocket: Real-time"]
+    end
+    
+    %% Cache Layer
+    REDIS["Redis Cluster<br/>─────────<br/>Embeddings Cache<br/>Session Store<br/>Rate Limiting<br/>TTL: 3600s<br/>Nodes: 6 (3 Master)<br/>Persistence: RDB + AOF"]
+    
+    %% Connections - Entry Point
+    WAF -->|"Filtered Traffic<br/>Clean Requests"| LB
+    LB -->|"Distributed Load"| APIGW
+    APIGW -->|"Authenticated<br/>Requests"| AUTH
+    
+    %% Connections - Ingestion to Broker
+    AUTH -->|"Authorized<br/>HTTP POST"| API
+    AUTH -->|"Authorized<br/>Webhook Events"| WH
+    AUTH -->|"Authorized<br/>Batch Jobs"| BATCH
+    
+    API -->|"HTTP POST<br/>JSON Payload"| KAFKA
+    WH -->|"Event Stream<br/>Webhook Events"| KAFKA
+    BATCH -->|"Bulk Insert<br/>CSV/Parquet"| KAFKA
+    KAFKA -.->|"Dead Letter<br/>Failed Messages"| RMQ
+    
+    %% Connections - Broker to Processing
+    KAFKA -->|"Consumer Group<br/>review-processors"| PRE
+    
+    %% Connections - Processing Pipeline Flow
+    PRE -->|"Cleaned Text<br/>Normalized"| SENT
+    PRE -->|"Cleaned Text"| FACT
+    SENT -->|"Sentiment Score S"| LOGIC
+    FACT -->|"Fact Score F"| LOGIC
+    
+    %% Connections - Processing to Data Layer
+    LOGIC -->|"IF publish=true<br/>INSERT"| POSTGRES
+    LOGIC -->|"IF publish=false<br/>QUEUE for Review"| ADMIN
+    
+    PRE -->|"Generate Embeddings<br/>sentence-transformers"| ASTRA
+    SENT -->|"Store Scores<br/>JSON"| POSTGRES
+    
+    %% Connections - Backup & Archive
+    POSTGRES -.->|"WAL Archive<br/>Hourly Backup"| S3
+    ASTRA -.->|"Snapshot<br/>Daily Backup"| S3
+    KAFKA -.->|"Message Archive<br/>Retention Policy"| S3
+    
+    %% Connections - Analysis Layer
+    POSTGRES <-->|"SQL Queries<br/>Metadata Fetch"| LANG
+    ASTRA <-->|"Vector Search<br/>Similarity Query"| RAG
+    LANG --> RAG
+    RAG --> INSIGHTS
+    
+    %% Connections - UI Layer
+    POSTGRES <-->|"GraphQL API<br/>Apollo Server"| ADMIN
+    POSTGRES <-->|"REST API<br/>Express.js"| SELLER
+    INSIGHTS -->|"WebSocket<br/>Push Updates"| SELLER
+    REDIS <-->|"Cache Queries<br/>Sub-second Reads"| SELLER
+    REDIS <-->|"Session Mgmt<br/>JWT Storage"| ADMIN
+    
+    %% Connections - Monitoring & Observability
+    API -.->|"Metrics Export<br/>/metrics"| PROM
+    WH -.->|"Metrics Export"| PROM
+    BATCH -.->|"Metrics Export"| PROM
+    KAFKA -.->|"JMX Metrics"| PROM
+    POSTGRES -.->|"pg_exporter"| PROM
+    REDIS -.->|"redis_exporter"| PROM
+    
+    PROM -->|"Metrics Feed<br/>PromQL"| GRAFANA
+    
+    API -.->|"App Logs<br/>JSON Format"| ELK
+    WH -.->|"Event Logs"| ELK
+    SENT -.->|"Model Logs"| ELK
+    FACT -.->|"Verification Logs"| ELK
+    
+    API -.->|"Trace Context<br/>OpenTelemetry"| JAEGER
+    PRE -.->|"Span Data"| JAEGER
+    SENT -.->|"Span Data"| JAEGER
+    LANG -.->|"Span Data"| JAEGER
+    
+    %% Bidirectional Flows
+    ADMIN -->|"Manual Publish<br/>Override"| POSTGRES
+    ADMIN -->|"Feedback Loop<br/>Model Retraining"| SENT
+    
+    %% Apply Styles
+    class API,WH,BATCH ingestion
+    class KAFKA,RMQ broker
+    class PRE,SENT,FACT processing
+    class LOGIC logic
+    class ASTRA,POSTGRES,S3 datastore
+    class LANG,RAG,INSIGHTS analysis
+    class ADMIN,SELLER ui
+    class REDIS broker
+    class LB,APIGW,AUTH,WAF security
+    class PROM,GRAFANA,ELK,JAEGER monitoring
