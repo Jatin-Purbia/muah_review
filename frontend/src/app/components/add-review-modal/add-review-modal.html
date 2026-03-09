@@ -1,0 +1,85 @@
+<div class="modal-backdrop" (click)="onBackdropClick($event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Add New Review</h2>
+      <button class="close-btn" (click)="cancelled.emit()">✕</button>
+    </div>
+
+    <div class="modal-body">
+      @if (formError) {
+        <div class="form-error">{{ formError }}</div>
+      }
+
+      <div class="field">
+        <label>Customer Name *</label>
+        <input
+          type="text"
+          [(ngModel)]="form.customerName"
+          placeholder="Display name shown on review"
+          maxlength="120"
+        />
+      </div>
+
+      <div class="field">
+        <label>Category *</label>
+        <input
+          type="text"
+          [(ngModel)]="form.reviewCategory"
+          placeholder="e.g. Product, Service, Delivery"
+          list="cat-list"
+        />
+        <datalist id="cat-list">
+          @for (cat of categories; track cat) {
+            <option [value]="cat"></option>
+          }
+        </datalist>
+      </div>
+
+      <div class="field">
+        <label>Rating *</label>
+        <div class="star-picker">
+          @for (star of [1,2,3,4,5]; track star) {
+            <button
+              type="button"
+              class="star-btn"
+              [class.active]="star <= (hoverRating || form.rating)"
+              (mouseenter)="hoverRating = star"
+              (mouseleave)="hoverRating = 0"
+              (click)="setRating(star)"
+            >★</button>
+          }
+          @if (form.rating) {
+            <span class="rating-label">{{ form.rating }}/5</span>
+          }
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Comment *</label>
+        <textarea
+          [(ngModel)]="form.comment"
+          placeholder="Share your experience..."
+          rows="4"
+          maxlength="1000"
+        ></textarea>
+        <span class="char-count">{{ form.comment.length }}/1000</span>
+      </div>
+
+      <div class="field field-toggle">
+        <label class="toggle-label">
+          <input type="checkbox" [(ngModel)]="form.isActive" />
+          <span class="toggle-track"></span>
+          Publish immediately
+        </label>
+        <p class="toggle-hint">Leave unchecked to save as draft for review.</p>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="cancelled.emit()" [disabled]="submitting">Cancel</button>
+      <button class="btn-submit" (click)="submit()" [disabled]="!isValid || submitting">
+        @if (submitting) { Submitting... } @else { Submit Review }
+      </button>
+    </div>
+  </div>
+</div>

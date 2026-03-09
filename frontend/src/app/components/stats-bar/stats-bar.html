@@ -1,0 +1,54 @@
+<div class="stats-bar">
+  <div class="stat-card">
+    <span class="stat-label">Total Reviews</span>
+    <span class="stat-value">{{ totalReviews }}</span>
+    <div class="publish-split">
+      <span class="split-item published">✓ {{ publishedCount }} published</span>
+      <span class="split-item unpublished">○ {{ unpublishedCount }} drafts</span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <span class="stat-label">Average Rating</span>
+    <div class="rating-display">
+      <span class="stat-value">{{ averageRating | number:'1.1-1' }}</span>
+      <div class="stars">
+        @for (s of stars(averageRating); track $index) {
+          <span [class.filled]="s === '★'">{{ s }}</span>
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="stat-card distribution">
+    <span class="stat-label">Rating Distribution</span>
+    <div class="bars">
+      @for (item of ratingDistribution; track item.star) {
+        <div class="bar-row">
+          <span class="bar-label">{{ item.star }}★</span>
+          <div class="bar-track">
+            <div class="bar-fill" [style.width]="getBarWidth(item.count)"></div>
+          </div>
+          <span class="bar-count">{{ item.count }}</span>
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <span class="stat-label">Categories</span>
+    <div class="category-chips">
+      @if (categoryDisplay.length === 0) {
+        <span class="no-data">—</span>
+      }
+      @for (cat of categoryDisplay; track cat.name) {
+        <div class="cat-chip">
+          <span class="chip-name">{{ cat.name }}</span>
+          @if (cat.rating > 0) {
+            <span class="chip-rating">{{ cat.rating | number:'1.1-1' }}★</span>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</div>

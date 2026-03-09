@@ -1,0 +1,99 @@
+<div class="card" [class.unpublished]="!review.isActive" [class.selected]="selected">
+
+  <!-- Select checkbox -->
+  <label class="select-check" title="Select review">
+    <input type="checkbox" [checked]="selected" (change)="selectionChange.emit(!selected)" />
+    <span class="check-indicator"></span>
+  </label>
+
+  <!-- Top Bar: Status badge + Category + Publish toggle -->
+  <div class="card-top-bar">
+    <span class="status-badge" [class.published]="review.isActive" [class.unpublished-badge]="!review.isActive">
+      {{ review.isActive ? '● Published' : '○ Draft' }}
+    </span>
+    <div class="top-right">
+      <span class="category-badge" [style.border-color]="categoryColor" [style.color]="categoryColor">
+        {{ review.reviewCategory }}
+      </span>
+      <button
+        class="toggle-btn"
+        [class.btn-unpublish]="review.isActive"
+        [class.btn-publish]="!review.isActive"
+        [disabled]="toggling"
+        (click)="onToggle()"
+      >
+        {{ toggling ? '…' : (review.isActive ? 'Unpublish' : 'Publish') }}
+      </button>
+      @if (!confirmDelete) {
+        <button class="icon-btn del" title="Delete review" (click)="confirmDelete = true">🗑</button>
+      } @else {
+        <button class="confirm-del-btn" (click)="onDelete()">Delete?</button>
+        <button class="cancel-del-btn" (click)="confirmDelete = false">✕</button>
+      }
+    </div>
+  </div>
+
+  <!-- Reviewer Header -->
+  <div class="card-header">
+    @if (review.creator?.profileImage) {
+      <img class="avatar-img" [src]="review.creator!.profileImage" [alt]="displayName" />
+    } @else {
+      <div class="avatar" [style.background]="categoryColor">{{ initials }}</div>
+    }
+    <div class="meta">
+        @if (review.heading) {
+          <h3 class="heading">{{ review.heading }}</h3>
+        }
+        <div class="reviewer-row">
+        <span class="reviewer-name">{{ displayName }}</span>
+        @if (review.createdAt) {
+          <span class="date">{{ review.createdAt | date:'MMM d, y' }}</span>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- Star Rating -->
+  <div class="stars">
+    @for (s of stars; track $index) {
+      <span [class.filled]="s === '★'">{{ s }}</span>
+    }
+    <span class="rating-num">{{ review.rating }}.0 / 5</span>
+  </div>
+
+  <!-- Comment with expand/collapse -->
+  <div class="comment-wrap">
+    <p class="comment" [class.expanded]="expanded">{{ review.comment }}</p>
+    @if (commentNeedsExpansion) {
+      <button class="expand-btn" (click)="toggleExpand()">
+        {{ expanded ? 'Show less ↑' : 'Read more ↓' }}
+      </button>
+    }
+  </div>
+
+  <!-- Footer: helpful votes -->
+  <div class="card-footer">
+    <span class="helpful-label">Helpful?</span>
+    <div class="vote-group">
+      <button
+        class="vote-btn"
+        [class.voted]="liking"
+        (click)="onLike()"
+        [disabled]="liking || disliking"
+        title="Mark as helpful"
+      >
+        👍 <span class="vote-count">{{ helpfulCount }}</span>
+      </button>
+      <button
+        class="vote-btn vote-no"
+        [class.voted]="disliking"
+        (click)="onDislike()"
+        [disabled]="liking || disliking"
+        title="Mark as unhelpful"
+      >
+        👎 <span class="vote-count">{{ unhelpfulCount }}</span>
+      </button>
+    </div>
+  </div>
+
+</div>

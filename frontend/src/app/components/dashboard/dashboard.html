@@ -1,0 +1,199 @@
+<div class="dashboard">
+
+  <!-- ═══════════════════ HEADER ═══════════════════ -->
+  <header class="header">
+    <div class="header-content">
+      <div class="brand">
+        <div class="logo-ring"><span class="logo-letter">M</span></div>
+        <div>
+          <h1 class="brand-title">
+            <span class="muah">MUAH</span> <span class="thin">Reviews</span>
+          </h1>
+          <p class="brand-sub">Customer Testimonials &middot; E-Commerce</p>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="header-pill">
+          <span class="pill-val">{{ reviews.length }}</span>
+          <span class="pill-lbl">Total</span>
+        </div>
+        <div class="header-pill gold">
+          <span class="pill-val">{{ averageRating | number:'1.1-1' }}<span class="star-sm">★</span></span>
+          <span class="pill-lbl">Avg Rating</span>
+        </div>
+        <div class="header-pill green">
+          <span class="pill-val">{{ publishedCount }}</span>
+          <span class="pill-lbl">Published</span>
+        </div>
+        <button class="btn-primary" (click)="showModal = true">✦ Write a Review</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- Alerts -->
+    @if (successMessage) {
+      <div class="alert alert-success"><span class="alert-icon">✓</span> {{ successMessage }}</div>
+    }
+    @if (error) {
+      <div class="alert alert-error">
+        <span class="alert-icon">⚠</span> {{ error }}
+        <button class="retry-btn" (click)="loadReviews()">Retry</button>
+      </div>
+    }
+
+    <!-- Stats Bar -->
+    <app-stats-bar
+      [totalReviews]="reviews.length"
+      [publishedCount]="publishedCount"
+      [unpublishedCount]="unpublishedCount"
+      [averageRating]="averageRating"
+      [ratingDistribution]="ratingDistribution"
+      [categories]="categories"
+      [categoryStats]="categoryStats"
+    />
+
+    <!-- Category Tabs (from API statistics) -->
+    @if (categoryStats.length > 0) {
+      <div class="cat-scroll-wrap">
+        <div class="cat-tabs">
+          <button class="cat-tab" [class.active]="selectedCategoryKey === null" (click)="selectCategoryKey(null)">
+            <span class="cat-name">All Reviews</span>
+            <span class="cat-count">{{ reviews.length }}</span>
+          </button>
+          @for (stat of categoryStats; track stat.id) {
+            <button
+              class="cat-tab"
+              [class.active]="selectedCategoryKey === (stat.category || '').toLowerCase()"
+              (click)="selectCategoryKey(stat.category || '')"
+            >
+              <span class="cat-name">{{ stat.category }}</span>
+              <span class="cat-count">{{ stat.reviewerCount }}</span>
+              @if (stat.rating) {
+                <span class="cat-rating">{{ stat.rating | number:'1.1-1' }}★</span>
+              }
+            </button>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Status Tabs + Inline Filters -->
+    <div class="section-bar">
+      <div class="tabs">
+        <button class="tab" [class.active]="publishFilter === 'all'" (click)="setPublishFilter('all')">
+          All <span class="tab-count">{{ reviews.length }}</span>
+        </button>
+        <button class="tab tab-published" [class.active]="publishFilter === 'published'" (click)="setPublishFilter('published')">
+          Published <span class="tab-count">{{ publishedCount }}</span>
+        </button>
+        <button class="tab tab-unpublished" [class.active]="publishFilter === 'unpublished'" (click)="setPublishFilter('unpublished')">
+          Drafts <span class="tab-count">{{ unpublishedCount }}</span>
+        </button>
+      </div>
+
+      <div class="filters-inline">
+        <input
+          class="search-input"
+          type="text"
+          placeholder="🔍  Search reviews..."
+          [(ngModel)]="searchQuery"
+          (ngModelChange)="applyFilters()"
+        />
+        <select class="filter-select" [(ngModel)]="selectedRating" (ngModelChange)="applyFilters()">
+          <option [ngValue]="0">All Ratings</option>
+          @for (star of [5,4,3,2,1]; track star) {
+            <option [ngValue]="star">{{ star }} ★</option>
+          }
+        </select>
+        @if (searchQuery || selectedCategoryKey || selectedRating > 0) {
+          <button class="btn-clear" (click)="clearFilters()">✕ Clear</button>
+        }
+        <span class="result-count">{{ filteredReviews.length }} / {{ reviews.length }}</span>
+      </div>
+    </div>
+
+    <!-- Bulk Action Bar (shown when reviews are selected) -->
+    @if (someSelected) {
+      <div class="bulk-bar">
+        <span class="bulk-count">{{ selectedCount }} selected</span>
+        <div class="bulk-actions">
+          <button class="bulk-btn btn-publish" (click)="onBulkPublish()" [disabled]="bulkLoading">
+            {{ bulkLoading ? '…' : '✓ Publish' }}
+          </button>
+          <button class="bulk-btn btn-unpublish" (click)="onBulkUnpublish()" [disabled]="bulkLoading">
+            {{ bulkLoading ? '…' : 'Unpublish' }}
+          </button>
+          <button class="bulk-btn btn-delete" (click)="onBulkDelete()" [disabled]="bulkLoading">
+            {{ bulkLoading ? '…' : '🗑 Delete' }}
+          </button>
+          <button class="bulk-btn btn-cancel" (click)="clearSelection()">✕ Cancel</button>
+        </div>
+      </div>
+    }
+
+    <!-- Loading Skeletons -->
+    @if (loading) {
+      <div class="reviews-grid">
+        @for (i of [1,2,3,4,5,6]; track i) {
+          <div class="skeleton-card">
+            <div class="skel-line short"></div>
+            <div class="skel-line med"></div>
+            <div class="skel-line long"></div>
+            <div class="skel-line long"></div>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Reviews Grid -->
+    @if (!loading) {
+      @if (filteredReviews.length > 0) {
+        <div class="reviews-grid">
+          <div class="select-all-row">
+            <label class="select-check">
+              <input type="checkbox" [checked]="allSelected" (change)="toggleSelectAll()" />
+              <span class="check-indicator"></span>
+            </label>
+            <span class="select-all-label">{{ allSelected ? 'Deselect all' : 'Select all' }}</span>
+          </div>
+          @for (review of filteredReviews; track review.id) {
+            <app-review-card
+              [review]="review"
+              [selected]="isSelected(review.id)"
+              (selectionChange)="toggleSelectOne(review.id)"
+              (togglePublish)="onTogglePublish($event)"
+              (liked)="onLike($event)"
+              (disliked)="onDislike($event)"
+              (deleted)="onDelete($event)"
+            />
+          }
+        </div>
+      } @else {
+        <div class="empty-state">
+          <div class="empty-icon">📭</div>
+          <h3>No reviews found</h3>
+          <p>Try adjusting your filters or write the first review.</p>
+          @if (searchQuery || selectedCategoryKey || selectedRating > 0) {
+            <button class="btn-clear" (click)="clearFilters()">Clear filters</button>
+          } @else {
+            <button class="btn-primary mt" (click)="showModal = true">Write first review</button>
+          }
+        </div>
+      }
+    }
+
+  </main>
+
+  <!-- Add Review Modal -->
+  @if (showModal) {
+    <app-add-review-modal
+      [categories]="categories"
+      (submitted)="onReviewSubmitted($event)"
+      (cancelled)="showModal = false"
+    />
+  }
+
+</div>
