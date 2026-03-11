@@ -10,7 +10,7 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class ReviewService {
-  private readonly base = 'http://localhost:8000/api/site-reviews';
+  private readonly base = 'http://localhost:4500/api/site-reviews';
 
   constructor(private http: HttpClient) {}
 
@@ -173,7 +173,10 @@ export class ReviewService {
 
   private handleError(error: any): Observable<never> {
     const message =
-      error?.error?.message ?? 'An unexpected error occurred. Please try again.';
+      error?.error?.message ??   // standard REST
+      error?.error?.detail ??    // FastAPI / Django REST
+      error?.message ??          // network-level HttpErrorResponse
+      'An unexpected error occurred. Please try again.';
     console.error('[ReviewService]', message, error);
     return throwError(() => new Error(message));
   }

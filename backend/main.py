@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -12,7 +13,53 @@ AZURE_API_URL = os.getenv("AZURE_API_URL", "").rstrip("/")
 AUTH_TOKEN = os.getenv("AUTH_TOKEN", "")
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:4200").split(",")
 
-app = FastAPI(title="Muahh Review Management API", version="2.0.0")
+COGNITO_REGION     = os.getenv("COGNITO_REGION", "eu-west-2")
+COGNITO_CLIENT_ID  = os.getenv("COGNITO_CLIENT_ID", "")
+COGNITO_USERNAME   = os.getenv("COGNITO_USERNAME", "")
+COGNITO_PASSWORD   = os.getenv("COGNITO_PASSWORD", "")
+
+
+async def _cognito_refresh() -> bool:
+    """Fetch a fresh Cognito IdToken and update the module-level AUTH_TOKEN.
+    Returns True on success, False if credentials are not configured."""
+    global AUTH_TOKEN
+    if not (COGNITO_CLIENT_ID and COGNITO_USERNAME and COGNITO_PASSWORD):
+        return False
+    url = f"https://cognito-idp.{COGNITO_REGION}.amazonaws.com/"
+    payload = {
+        "AuthFlow": "USER_PASSWORD_AUTH",
+        "ClientId": COGNITO_CLIENT_ID,
+        "AuthParameters": {
+            "USERNAME": COGNITO_USERNAME,
+            "PASSWORD": COGNITO_PASSWORD,
+        },
+    }
+    headers = {
+        "Content-Type": "application/x-amz-json-1.1",
+        "X-Amz-Target": "AWSCognitoIdentityProviderService.InitiateAuth",
+    }
+    async with httpx.AsyncClient(timeout=15) as client:
+        r = await client.post(url, json=payload, headers=headers)
+        r.raise_for_status()
+        AUTH_TOKEN = r.json()["AuthenticationResult"]["IdToken"]
+    return True
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    """On startup, attempt to fetch a fresh Cognito token."""
+    try:
+        refreshed = await _cognito_refresh()
+        if refreshed:
+            print("[auth] Cognito token refreshed on startup.")
+        else:
+            print("[auth] Cognito credentials not configured — using AUTH_TOKEN from .env.")
+    except Exception as exc:
+        print(f"[auth] WARNING: Could not refresh Cognito token on startup: {exc}")
+    yield
+
+
+app = FastAPI(title="Muahh Review Management API", version="2.0.0", lifespan=_lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -95,6 +142,9 @@ async def _proxy_post(path: str, body: dict, status_code: int = 200):
     async with httpx.AsyncClient(timeout=30) as client:
         try:
             r = await client.post(f"{AZURE_API_URL}/{path}", headers=get_headers(), json=body)
+            if r.status_code == 401:
+                if await _cognito_refresh():
+                    r = await client.post(f"{AZURE_API_URL}/{path}", headers=get_headers(), json=body)
             r.raise_for_status()
             return r.json()
         except httpx.HTTPStatusError as e:
@@ -111,6 +161,9 @@ async def _proxy_put(path: str, body: dict = None):
                 headers=get_headers(),
                 json=body or {},
             )
+            if r.status_code == 401:
+                if await _cognito_refresh():
+                    r = await client.put(f"{AZURE_API_URL}/{path}", headers=get_headers(), json=body or {})
             r.raise_for_status()
             try:
                 return r.json()
@@ -126,6 +179,9 @@ async def _proxy_delete(path: str):
     async with httpx.AsyncClient(timeout=30) as client:
         try:
             r = await client.delete(f"{AZURE_API_URL}/{path}", headers=get_headers())
+            if r.status_code == 401:
+                if await _cognito_refresh():
+                    r = await client.delete(f"{AZURE_API_URL}/{path}", headers=get_headers())
             r.raise_for_status()
             try:
                 return r.json()
@@ -292,4 +348,4 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=4500, reload=True)
