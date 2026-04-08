@@ -17,9 +17,9 @@ export class ReviewService {
     {
       id: '1',
       userId: 'user-001',
-      heading: 'Fresh formulas and thoughtful packaging',
-      comment: 'The serum texture feels luxurious, sinks in quickly, and the packaging looks premium on my vanity. It made the whole routine feel elevated.',
-      reviewCategory: 'Product',
+      heading: 'Delivery felt premium and fast',
+      comment: 'My order arrived in two days, the packaging was secure, and the tracking updates were clear the whole way through. It felt like a polished premium brand experience.',
+      reviewCategory: 'Delivery',
       rating: 5,
       nickName: 'Ava R.',
       customerName: 'Ava Reed',
@@ -37,12 +37,24 @@ export class ReviewService {
       isDeleted: false,
       createdAt: '2024-03-15T10:30:00Z',
       updatedAt: null,
+      sellerId: 'seller-aurora',
+      sellerName: 'Aurora Beauty',
+      productName: 'Glow Serum',
+      pipelineScore: 91,
+      sentimentScore: 88,
+      pipelineStatus: 'approved',
+      autoPublishEligible: true,
+      segments: [
+        { segment: 'Delivery speed', sentiment: 'positive', score: 93 },
+        { segment: 'Packaging', sentiment: 'positive', score: 90 },
+        { segment: 'Tracking clarity', sentiment: 'positive', score: 82 },
+      ],
     },
     {
       id: '2',
       userId: 'user-002',
-      heading: 'Helpful guidance before I ordered',
-      comment: 'Support answered my ingredient questions within the hour and recommended the right bundle. It felt personal instead of scripted.',
+      heading: 'Support team guided me before buying',
+      comment: 'I asked a few ingredient questions and the support team replied quickly with a simple routine recommendation. It made me much more confident about placing the order.',
       reviewCategory: 'Service',
       rating: 5,
       nickName: 'Nina P.',
@@ -61,14 +73,25 @@ export class ReviewService {
       isDeleted: false,
       createdAt: '2024-03-14T14:20:00Z',
       updatedAt: null,
+      sellerId: 'seller-aurora',
+      sellerName: 'Aurora Beauty',
+      productName: 'Starter Routine Bundle',
+      pipelineScore: 89,
+      sentimentScore: 92,
+      pipelineStatus: 'approved',
+      autoPublishEligible: true,
+      segments: [
+        { segment: 'Response speed', sentiment: 'positive', score: 90 },
+        { segment: 'Recommendation quality', sentiment: 'positive', score: 87 },
+      ],
     },
     {
       id: '3',
       userId: 'user-003',
-      heading: 'Solid everyday staple',
-      comment: 'I have been using this moisturizer for three weeks and it layers well under sunscreen. I would love a travel size, but the formula itself is reliable.',
+      heading: 'Comfortable fabric and clean stitching',
+      comment: 'The polo feels soft, breathable, and comfortable for all-day wear. It looks sharp enough for casual office days and still feels easy on weekends.',
       reviewCategory: 'Product',
-      rating: 4,
+      rating: 5,
       nickName: 'Leo M.',
       customerName: 'Leo Martin',
       helpfulCount: 12,
@@ -85,18 +108,30 @@ export class ReviewService {
       isDeleted: false,
       createdAt: '2024-03-13T09:15:00Z',
       updatedAt: null,
+      sellerId: 'seller-threadline',
+      sellerName: 'ThreadLine Apparel',
+      productName: 'Polo Top',
+      pipelineScore: 86,
+      sentimentScore: 84,
+      pipelineStatus: 'approved',
+      autoPublishEligible: true,
+      segments: [
+        { segment: 'Fabric quality', sentiment: 'positive', score: 88 },
+        { segment: 'Fit', sentiment: 'positive', score: 82 },
+        { segment: 'Value', sentiment: 'positive', score: 77 },
+      ],
     },
     {
       id: '4',
       userId: 'user-004',
-      heading: 'Beautiful order experience from checkout to doorstep',
-      comment: 'Everything arrived neatly packed, with samples included and clear care instructions. The full experience felt curated and calm.',
-      reviewCategory: 'Delivery',
-      rating: 5,
+      heading: 'Works well but scent is a bit strong',
+      comment: 'The cleanser leaves my skin balanced and clean, but the fragrance is stronger than I expected. I would still use it, though I am unsure whether that scent will appeal to everyone.',
+      reviewCategory: 'Product',
+      rating: 3,
       nickName: 'Mia C.',
       customerName: 'Mia Chen',
-      helpfulCount: 35,
-      unHelpfulCount: 0,
+      helpfulCount: 8,
+      unHelpfulCount: 4,
       creator: {
         userId: 'user-004',
         firstName: 'Mia',
@@ -105,18 +140,29 @@ export class ReviewService {
         nickName: 'Mia C.',
         profileImage: '',
       },
-      isActive: true,
+      isActive: false,
       isDeleted: false,
       createdAt: '2024-03-12T16:45:00Z',
       updatedAt: null,
+      sellerId: 'seller-aurora',
+      sellerName: 'Aurora Beauty',
+      productName: 'Daily Cleanser',
+      pipelineScore: 58,
+      sentimentScore: 46,
+      pipelineStatus: 'manual-review',
+      autoPublishEligible: false,
+      segments: [
+        { segment: 'Formula performance', sentiment: 'positive', score: 72 },
+        { segment: 'Fragrance', sentiment: 'negative', score: 29 },
+      ],
     },
     {
       id: '5',
       userId: 'user-005',
-      heading: 'Nice results, still deciding on the scent',
-      comment: 'The cleanser does what it promises and my skin feels balanced after use. The scent is stronger than I expected, so I saved this as a draft note for now.',
-      reviewCategory: 'Product',
-      rating: 3,
+      heading: 'Shade range missed my undertone',
+      comment: 'The finish is beautiful, but I struggled to find a match that works for my undertone. The product quality seems good, though the current options feel limited for me.',
+      reviewCategory: 'Quality',
+      rating: 2,
       nickName: 'Jules H.',
       customerName: 'Jules Harper',
       helpfulCount: 5,
@@ -133,17 +179,28 @@ export class ReviewService {
       isDeleted: false,
       createdAt: '2024-03-11T11:00:00Z',
       updatedAt: null,
+      sellerId: 'seller-aurora',
+      sellerName: 'Aurora Beauty',
+      productName: 'Skin Tint',
+      pipelineScore: 34,
+      sentimentScore: 22,
+      pipelineStatus: 'blocked',
+      autoPublishEligible: false,
+      segments: [
+        { segment: 'Shade range', sentiment: 'negative', score: 14 },
+        { segment: 'Finish', sentiment: 'positive', score: 74 },
+      ],
     },
     {
       id: '6',
       userId: 'user-006',
-      heading: 'Shade range needs a little more work',
-      comment: 'The finish is lovely, but I struggled to find a close match for my undertone. Keeping this unpublished until I retry a different shade.',
-      reviewCategory: 'Quality',
-      rating: 2,
+      heading: 'Returns process was easier than expected',
+      comment: 'I had to exchange a size and the process was straightforward. The portal was easy to use and the replacement arrived quickly after the return was picked up.',
+      reviewCategory: 'Returns',
+      rating: 4,
       nickName: 'Priya S.',
       customerName: 'Priya Shah',
-      helpfulCount: 3,
+      helpfulCount: 11,
       unHelpfulCount: 1,
       creator: {
         userId: 'user-006',
@@ -157,18 +214,29 @@ export class ReviewService {
       isDeleted: false,
       createdAt: '2024-03-10T13:30:00Z',
       updatedAt: null,
+      sellerId: 'seller-threadline',
+      sellerName: 'ThreadLine Apparel',
+      productName: 'Linen Shirt',
+      pipelineScore: 77,
+      sentimentScore: 71,
+      pipelineStatus: 'approved',
+      autoPublishEligible: true,
+      segments: [
+        { segment: 'Return workflow', sentiment: 'positive', score: 79 },
+        { segment: 'Replacement speed', sentiment: 'positive', score: 74 },
+      ],
     },
     {
       id: '7',
       userId: 'user-007',
-      heading: 'Pump stopped working too early',
-      comment: 'I liked the formula, but the pump jammed after a week which made the bottle frustrating to use. Sharing this so the packaging team can improve it.',
-      reviewCategory: 'Quality',
-      rating: 1,
+      heading: 'Website felt slow on mobile checkout',
+      comment: 'The product itself is good, but the mobile checkout froze twice before the payment finally went through. I almost gave up because the experience felt unstable.',
+      reviewCategory: 'Website',
+      rating: 2,
       nickName: 'Omar T.',
       customerName: 'Omar Torres',
-      helpfulCount: 8,
-      unHelpfulCount: 0,
+      helpfulCount: 15,
+      unHelpfulCount: 2,
       creator: {
         userId: 'user-007',
         firstName: 'Omar',
@@ -177,22 +245,33 @@ export class ReviewService {
         nickName: 'Omar T.',
         profileImage: '',
       },
-      isActive: true,
+      isActive: false,
       isDeleted: false,
       createdAt: '2024-03-09T10:00:00Z',
       updatedAt: null,
+      sellerId: 'seller-threadline',
+      sellerName: 'ThreadLine Apparel',
+      productName: 'Mobile Storefront',
+      pipelineScore: 41,
+      sentimentScore: 27,
+      pipelineStatus: 'manual-review',
+      autoPublishEligible: false,
+      segments: [
+        { segment: 'Checkout stability', sentiment: 'negative', score: 18 },
+        { segment: 'Product satisfaction', sentiment: 'positive', score: 68 },
+      ],
     },
     {
       id: '8',
       userId: 'user-008',
-      heading: 'Warm follow-up after purchase',
-      comment: 'I received a helpful message with routine tips after ordering, which made the brand feel attentive and human. Small touch, big impact.',
-      reviewCategory: 'Support',
-      rating: 5,
+      heading: 'Happy with the item, disappointed by packaging damage',
+      comment: 'The dress looks great and fits well, but the outer box was crushed when it arrived. Thankfully the product was fine, though the unboxing experience was disappointing.',
+      reviewCategory: 'Complaints',
+      rating: 3,
       nickName: 'Sofia G.',
       customerName: 'Sofia Garcia',
-      helpfulCount: 22,
-      unHelpfulCount: 0,
+      helpfulCount: 9,
+      unHelpfulCount: 1,
       creator: {
         userId: 'user-008',
         firstName: 'Sofia',
@@ -201,10 +280,21 @@ export class ReviewService {
         nickName: 'Sofia G.',
         profileImage: '',
       },
-      isActive: true,
+      isActive: false,
       isDeleted: false,
       createdAt: '2024-03-08T15:20:00Z',
       updatedAt: null,
+      sellerId: 'seller-threadline',
+      sellerName: 'ThreadLine Apparel',
+      productName: 'Summer Dress',
+      pipelineScore: 55,
+      sentimentScore: 49,
+      pipelineStatus: 'manual-review',
+      autoPublishEligible: false,
+      segments: [
+        { segment: 'Product fit', sentiment: 'positive', score: 76 },
+        { segment: 'Packaging condition', sentiment: 'negative', score: 24 },
+      ],
     },
   ];
 
@@ -224,7 +314,7 @@ export class ReviewService {
         numberPerPage: 500,
         totalPages: 1,
       }
-    }).pipe(delay(200));
+    }).pipe(delay(180));
   }
 
   fetchAll(filter: Omit<SiteReviewFilter, 'isActive'> = {}): Observable<SiteReviewSearchResult> {
@@ -240,7 +330,7 @@ export class ReviewService {
   }
 
   getReviews(): Observable<Review[]> {
-    return of([...this.mockReviews]).pipe(delay(200));
+    return of([...this.mockReviews]).pipe(delay(180));
   }
 
   getById(id: string): Observable<Review> {
@@ -248,22 +338,30 @@ export class ReviewService {
   }
 
   getStatistics(): Observable<SiteCategoryReview[]> {
-    const stats: SiteCategoryReview[] = [
-      { id: 1, category: 'Product', reviewerCount: 4, rating: 4.3, reviewCount: 4 },
-      { id: 2, category: 'Service', reviewerCount: 1, rating: 5, reviewCount: 1 },
-      { id: 3, category: 'Delivery', reviewerCount: 1, rating: 5, reviewCount: 1 },
-      { id: 4, category: 'Quality', reviewerCount: 2, rating: 1.5, reviewCount: 2 },
-      { id: 5, category: 'Support', reviewerCount: 1, rating: 5, reviewCount: 1 },
-    ];
+    const reviewsByCategory = new Map<string, Review[]>();
 
-    return of(stats).pipe(delay(180));
+    for (const review of this.mockReviews) {
+      const list = reviewsByCategory.get(review.reviewCategory) ?? [];
+      list.push(review);
+      reviewsByCategory.set(review.reviewCategory, list);
+    }
+
+    const stats: SiteCategoryReview[] = [...reviewsByCategory.entries()].map(([category, reviews], index) => ({
+      id: index + 1,
+      category,
+      reviewerCount: reviews.length,
+      rating: reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length,
+      reviewCount: reviews.length,
+    }));
+
+    return of(stats).pipe(delay(150));
   }
 
   create(dto: CreateSiteReviewDto): Observable<Review> {
     const newReview: Review = {
       id: Math.random().toString(36).slice(2, 11),
       userId: `user-${Math.random().toString(36).slice(2, 7)}`,
-      heading: '',
+      heading: 'New review awaiting moderation',
       comment: dto.comment,
       reviewCategory: dto.reviewCategory,
       rating: dto.rating,
@@ -276,6 +374,16 @@ export class ReviewService {
       isDeleted: false,
       createdAt: new Date().toISOString(),
       updatedAt: null,
+      sellerId: 'seller-aurora',
+      sellerName: 'Aurora Beauty',
+      productName: 'Recently Added Product',
+      pipelineScore: dto.rating >= 4 ? 84 : dto.rating === 3 ? 58 : 33,
+      sentimentScore: dto.rating >= 4 ? 80 : dto.rating === 3 ? 50 : 28,
+      pipelineStatus: dto.rating >= 4 ? 'approved' : dto.rating === 3 ? 'manual-review' : 'blocked',
+      autoPublishEligible: dto.rating >= 4,
+      segments: [
+        { segment: 'Overall sentiment', sentiment: dto.rating >= 4 ? 'positive' : dto.rating === 3 ? 'neutral' : 'negative', score: dto.rating * 20 },
+      ],
     };
 
     this.mockReviews = [newReview, ...this.mockReviews];
@@ -288,13 +396,19 @@ export class ReviewService {
 
   publish(id: string): Observable<{ id: string; isActive: boolean }> {
     const review = this.mockReviews.find((item) => item.id === id);
-    if (review) review.isActive = true;
+    if (review) {
+      review.isActive = true;
+      review.pipelineStatus = 'approved';
+    }
     return of({ id, isActive: true }).pipe(delay(120));
   }
 
   unpublish(id: string): Observable<{ id: string; isActive: boolean }> {
     const review = this.mockReviews.find((item) => item.id === id);
-    if (review) review.isActive = false;
+    if (review) {
+      review.isActive = false;
+      review.pipelineStatus = 'manual-review';
+    }
     return of({ id, isActive: false }).pipe(delay(120));
   }
 
@@ -309,7 +423,10 @@ export class ReviewService {
   bulkPublish(ids: string[]): Observable<{ id: string; isActive: boolean }[]> {
     return of(ids.map((id) => {
       const review = this.mockReviews.find((item) => item.id === id);
-      if (review) review.isActive = true;
+      if (review) {
+        review.isActive = true;
+        review.pipelineStatus = 'approved';
+      }
       return { id, isActive: true };
     })).pipe(delay(200));
   }
@@ -317,7 +434,10 @@ export class ReviewService {
   bulkUnpublish(ids: string[]): Observable<{ id: string; isActive: boolean }[]> {
     return of(ids.map((id) => {
       const review = this.mockReviews.find((item) => item.id === id);
-      if (review) review.isActive = false;
+      if (review) {
+        review.isActive = false;
+        review.pipelineStatus = 'manual-review';
+      }
       return { id, isActive: false };
     })).pipe(delay(200));
   }

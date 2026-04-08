@@ -1,5 +1,7 @@
 // Site review models
 
+export type PipelineStatus = 'approved' | 'manual-review' | 'blocked' | 'pending';
+
 export interface ReviewCreator {
   userId: string;
   firstName: string;
@@ -7,6 +9,12 @@ export interface ReviewCreator {
   fullName: string;
   nickName: string;
   profileImage: string;
+}
+
+export interface ReviewSegmentInsight {
+  segment: string;
+  sentiment: 'positive' | 'neutral' | 'negative';
+  score: number;
 }
 
 export interface Review {
@@ -25,6 +33,14 @@ export interface Review {
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string | null;
+  sellerId?: string;
+  sellerName?: string;
+  productName?: string;
+  pipelineScore?: number;
+  sentimentScore?: number;
+  pipelineStatus?: PipelineStatus;
+  autoPublishEligible?: boolean;
+  segments?: ReviewSegmentInsight[];
 }
 
 export interface ReviewCreate {

@@ -82,6 +82,43 @@
   margin: 0 0 0.85rem 1.6rem;
 }
 
+.context-row {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin: 0 0 0.9rem 1.6rem;
+}
+
+.context-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+  font-size: 0.72rem;
+  font-weight: 600;
+
+  &.product {
+    background: #f8fafc;
+    border-color: #dbe2ea;
+    color: #334155;
+  }
+
+  &.pipeline {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: #1d4ed8;
+  }
+
+  &.flagged {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #b91c1c;
+  }
+}
+
 .status-badge {
   font-size: 0.72rem;
   font-weight: 600;
@@ -289,6 +326,37 @@
 .comment-wrap {
   position: relative;
   margin-bottom: 0.25rem;
+}
+
+.segment-row {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.8rem;
+}
+
+.segment-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.22rem 0.62rem;
+  border-radius: 999px;
+  background: #ecfdf5;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  font-size: 0.72rem;
+  font-weight: 600;
+
+  &.neutral {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: #1d4ed8;
+  }
+
+  &.negative {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #b91c1c;
+  }
 }
 
 .comment {

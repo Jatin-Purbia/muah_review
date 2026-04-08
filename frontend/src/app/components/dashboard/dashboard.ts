@@ -2,10 +2,29 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReviewService } from '../../services/review.service';
-import { Review, CreateSiteReviewDto, PublishFilter, SiteCategoryReview } from '../../models/review.model';
+import { Review, CreateSiteReviewDto, PublishFilter, SiteCategoryReview, PipelineStatus } from '../../models/review.model';
 import { ReviewCardComponent } from '../review-card/review-card';
 import { StatsBarComponent } from '../stats-bar/stats-bar';
 import { AddReviewModalComponent } from '../add-review-modal/add-review-modal';
+
+type PortalView = 'super-admin' | 'seller';
+
+interface SellerSummary {
+  id: string;
+  name: string;
+  totalReviews: number;
+  publishedReviews: number;
+  averageRating: number;
+  satisfaction: number;
+  positiveShare: number;
+}
+
+interface PipelineMetric {
+  label: string;
+  value: string;
+  note: string;
+  tone: 'default' | 'good' | 'warn' | 'danger';
+}
 
 @Component({
   selector: 'app-dashboard',
@@ -28,20 +47,153 @@ export class DashboardComponent implements OnInit {
   showModal = false;
   successMessage = '';
 
-  // Bulk selection
   selectedIds = new Set<string>();
   bulkLoading = false;
+
+  activePortal: PortalView = 'super-admin';
+  pipelineAutomationEnabled = true;
+  automationThreshold = 72;
+  selectedSellerId = 'seller-aurora';
 
   get someSelected(): boolean { return this.selectedIds.size > 0; }
   get selectedCount(): number { return this.selectedIds.size; }
   get selectedIdsArray(): string[] { return [...this.selectedIds]; }
 
   get allSelected(): boolean {
-    return this.filteredReviews.length > 0 &&
-      this.filteredReviews.every((r) => this.selectedIds.has(r.id));
+    return this.filteredReviews.length > 0 && this.filteredReviews.every((review) => this.selectedIds.has(review.id));
   }
 
-  isSelected(id: string): boolean { return this.selectedIds.has(id); }
+  get displayedReviews(): Review[] {
+    return this.activePortal === 'super-admin' ? this.filteredReviews : this.sellerReviews;
+  }
+
+  get sellerReviews(): Review[] {
+    return this.reviews.filter((review) => review.sellerId === this.selectedSellerId);
+  }
+
+  get sellerPublishedReviews(): Review[] {
+    return this.sellerReviews.filter((review) => review.isActive);
+  }
+
+  get sellerFlaggedReviews(): Review[] {
+    return this.sellerReviews.filter((review) => review.pipelineStatus !== 'approved');
+  }
+
+  get sellers(): SellerSummary[] {
+    const groups = new Map<string, Review[]>();
+
+    for (const review of this.reviews) {
+      const sellerId = review.sellerId ?? 'unknown';
+      const list = groups.get(sellerId) ?? [];
+      list.push(review);
+      groups.set(sellerId, list);
+    }
+
+    return [...groups.entries()].map(([sellerId, sellerReviews]) => {
+      const totalReviews = sellerReviews.length;
+      const publishedReviews = sellerReviews.filter((review) => review.isActive).length;
+      const averageRating = totalReviews ? sellerReviews.reduce((sum, review) => sum + review.rating, 0) / totalReviews : 0;
+      const positiveShare = totalReviews
+        ? Math.round((sellerReviews.filter((review) => (review.sentimentScore ?? 0) >= 70).length / totalReviews) * 100)
+        : 0;
+      const satisfaction = totalReviews
+        ? Math.round(sellerReviews.reduce((sum, review) => sum + (review.sentimentScore ?? 0), 0) / totalReviews)
+        : 0;
+
+      return {
+        id: sellerId,
+        name: sellerReviews[0]?.sellerName ?? 'Unknown seller',
+        totalReviews,
+        publishedReviews,
+        averageRating,
+        satisfaction,
+        positiveShare,
+      };
+    });
+  }
+
+  get selectedSeller(): SellerSummary | undefined {
+    return this.sellers.find((seller) => seller.id === this.selectedSellerId);
+  }
+
+  get pipelineMetrics(): PipelineMetric[] {
+    const totalPublished = this.reviews.filter((review) => review.isActive).length;
+    const approved = this.reviews.filter((review) => review.pipelineStatus === 'approved').length;
+    const manualReview = this.reviews.filter((review) => review.pipelineStatus === 'manual-review').length;
+    const blocked = this.reviews.filter((review) => review.pipelineStatus === 'blocked').length;
+
+    return [
+      { label: 'Pipeline automation', value: this.pipelineAutomationEnabled ? 'On' : 'Off', note: `Threshold ${this.automationThreshold}`, tone: this.pipelineAutomationEnabled ? 'good' : 'warn' },
+      { label: 'Auto-approved', value: `${approved}`, note: `${totalPublished} live on website`, tone: 'good' },
+      { label: 'Manual queue', value: `${manualReview}`, note: 'Needs super admin review', tone: manualReview > 0 ? 'warn' : 'default' },
+      { label: 'Blocked', value: `${blocked}`, note: 'Held back from website', tone: blocked > 0 ? 'danger' : 'default' },
+    ];
+  }
+
+  get pendingPipelineReviews(): Review[] {
+    return this.reviews
+      .filter((review) => review.pipelineStatus === 'manual-review' || review.pipelineStatus === 'blocked')
+      .sort((a, b) => (a.pipelineScore ?? 0) - (b.pipelineScore ?? 0));
+  }
+
+  get sellerMoodBars(): { label: string; value: number; tone: string }[] {
+    const reviews = this.sellerReviews;
+    const total = reviews.length || 1;
+
+    return [
+      { label: 'Happy', value: Math.round((reviews.filter((review) => (review.sentimentScore ?? 0) >= 70).length / total) * 100), tone: 'good' },
+      { label: 'Mixed', value: Math.round((reviews.filter((review) => (review.sentimentScore ?? 0) >= 45 && (review.sentimentScore ?? 0) < 70).length / total) * 100), tone: 'warn' },
+      { label: 'Unhappy', value: Math.round((reviews.filter((review) => (review.sentimentScore ?? 0) < 45).length / total) * 100), tone: 'danger' },
+    ];
+  }
+
+  get sellerCategoryPerformance(): { category: string; rating: number; mentions: number }[] {
+    const categoryMap = new Map<string, Review[]>();
+
+    for (const review of this.sellerReviews) {
+      const list = categoryMap.get(review.reviewCategory) ?? [];
+      list.push(review);
+      categoryMap.set(review.reviewCategory, list);
+    }
+
+    return [...categoryMap.entries()].map(([category, reviews]) => ({
+      category,
+      rating: reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length,
+      mentions: reviews.length,
+    }));
+  }
+
+  get sellerTrend(): { month: string; score: number }[] {
+    return [
+      { month: 'Jan', score: 62 },
+      { month: 'Feb', score: 68 },
+      { month: 'Mar', score: 74 },
+      { month: 'Apr', score: this.selectedSeller?.satisfaction ?? 70 },
+    ];
+  }
+
+  get sellerTopSignals(): { title: string; body: string; tone: 'good' | 'warn' | 'danger' }[] {
+    const topNegative = this.sellerFlaggedReviews[0];
+    const topPositive = [...this.sellerReviews].sort((a, b) => (b.sentimentScore ?? 0) - (a.sentimentScore ?? 0))[0];
+
+    return [
+      {
+        title: 'What customers love',
+        body: topPositive ? `${topPositive.productName}: strongest signal around ${topPositive.segments?.[0]?.segment?.toLowerCase() ?? 'overall product quality'}.` : 'Positive product sentiment is trending up.',
+        tone: 'good',
+      },
+      {
+        title: 'What needs work',
+        body: topNegative ? `${topNegative.productName}: pipeline flagged concerns around ${topNegative.segments?.find((segment) => segment.sentiment === 'negative')?.segment?.toLowerCase() ?? 'review sentiment'}.` : 'No major risks in the current seller queue.',
+        tone: topNegative ? 'danger' : 'warn',
+      },
+      {
+        title: 'Action recommendation',
+        body: 'Use this dashboard to compare category sentiment, identify weak spots, and coordinate with support or operations before publishing more reviews.',
+        tone: 'warn',
+      },
+    ];
+  }
 
   constructor(private reviewService: ReviewService) {}
 
@@ -52,7 +204,7 @@ export class DashboardComponent implements OnInit {
 
   loadStatistics(): void {
     this.reviewService.getStatistics().subscribe({
-      next: (data) => { this.categoryStats = (data || []).filter((s) => !!s.category); },
+      next: (data) => { this.categoryStats = (data || []).filter((stat) => !!stat.category); },
       error: () => { /* non-critical */ },
     });
   }
@@ -63,6 +215,9 @@ export class DashboardComponent implements OnInit {
     this.reviewService.getReviews().subscribe({
       next: (data) => {
         this.reviews = data;
+        if (!this.sellers.find((seller) => seller.id === this.selectedSellerId) && this.sellers[0]) {
+          this.selectedSellerId = this.sellers[0].id;
+        }
         this.applyFilters();
         this.loading = false;
       },
@@ -77,34 +232,47 @@ export class DashboardComponent implements OnInit {
     let result = [...this.reviews];
 
     if (this.publishFilter === 'published') {
-      result = result.filter((r) => r.isActive);
+      result = result.filter((review) => review.isActive);
     } else if (this.publishFilter === 'unpublished') {
-      result = result.filter((r) => !r.isActive);
+      result = result.filter((review) => !review.isActive);
     }
 
     if (this.searchQuery.trim()) {
-      const q = this.searchQuery.toLowerCase();
-      result = result.filter(
-        (r) =>
-          (r.heading || '').toLowerCase().includes(q) ||
-          r.comment.toLowerCase().includes(q) ||
-          (r.nickName || '').toLowerCase().includes(q) ||
-          (r.customerName || '').toLowerCase().includes(q) ||
-          (r.creator?.fullName || '').toLowerCase().includes(q)
+      const query = this.searchQuery.toLowerCase();
+      result = result.filter((review) =>
+        (review.heading || '').toLowerCase().includes(query) ||
+        review.comment.toLowerCase().includes(query) ||
+        (review.nickName || '').toLowerCase().includes(query) ||
+        (review.customerName || '').toLowerCase().includes(query) ||
+        (review.creator?.fullName || '').toLowerCase().includes(query) ||
+        (review.sellerName || '').toLowerCase().includes(query) ||
+        (review.productName || '').toLowerCase().includes(query)
       );
     }
 
-    const activeCat = this.selectedCategoryKey ?? this.selectedCategory;
-    if (activeCat) {
-      result = result.filter((r) => r.reviewCategory?.toLowerCase() === activeCat.toLowerCase());
+    const activeCategory = this.selectedCategoryKey ?? this.selectedCategory;
+    if (activeCategory) {
+      result = result.filter((review) => review.reviewCategory?.toLowerCase() === activeCategory.toLowerCase());
     }
 
     if (this.selectedRating > 0) {
       const star = Number(this.selectedRating);
-      result = result.filter((r) => r.rating === star);
+      result = result.filter((review) => review.rating === star);
     }
 
     this.filteredReviews = result;
+  }
+
+  setPortal(view: PortalView): void {
+    this.activePortal = view;
+  }
+
+  togglePipelineAutomation(): void {
+    this.pipelineAutomationEnabled = !this.pipelineAutomationEnabled;
+    this.successMessage = this.pipelineAutomationEnabled
+      ? 'Auto-publish moderation is now enabled for published seller reviews.'
+      : 'Auto-publish moderation is now disabled. Super admin review is required.';
+    setTimeout(() => (this.successMessage = ''), 3200);
   }
 
   selectCategoryKey(key: string | null): void {
@@ -113,27 +281,29 @@ export class DashboardComponent implements OnInit {
     this.applyFilters();
   }
 
-  setPublishFilter(f: PublishFilter): void {
-    this.publishFilter = f;
+  setPublishFilter(filter: PublishFilter): void {
+    this.publishFilter = filter;
     this.applyFilters();
   }
 
-  get publishedCount(): number { return this.reviews.filter((r) => r.isActive).length; }
-  get unpublishedCount(): number { return this.reviews.filter((r) => !r.isActive).length; }
+  isSelected(id: string): boolean { return this.selectedIds.has(id); }
+
+  get publishedCount(): number { return this.reviews.filter((review) => review.isActive).length; }
+  get unpublishedCount(): number { return this.reviews.filter((review) => !review.isActive).length; }
 
   get categories(): string[] {
-    return [...new Set(this.reviews.map((r) => r.reviewCategory).filter(Boolean))];
+    return [...new Set(this.reviews.map((review) => review.reviewCategory).filter(Boolean))];
   }
 
   get averageRating(): number {
     if (!this.reviews.length) return 0;
-    return this.reviews.reduce((sum, r) => sum + r.rating, 0) / this.reviews.length;
+    return this.reviews.reduce((sum, review) => sum + review.rating, 0) / this.reviews.length;
   }
 
   get ratingDistribution(): { star: number; count: number }[] {
     return [5, 4, 3, 2, 1].map((star) => ({
       star,
-      count: this.reviews.filter((r) => r.rating === star).length,
+      count: this.reviews.filter((review) => review.rating === star).length,
     }));
   }
 
@@ -147,13 +317,17 @@ export class DashboardComponent implements OnInit {
 
   onTogglePublish(event: { review: Review; published: boolean }): void {
     this.reviewService.togglePublish(event.review.id, event.published).subscribe({
-      next: (res) => {
-        const idx = this.reviews.findIndex((r) => r.id === event.review.id);
-        if (idx !== -1) {
-          this.reviews[idx] = { ...this.reviews[idx], isActive: res.isActive };
+      next: (response) => {
+        const index = this.reviews.findIndex((review) => review.id === event.review.id);
+        if (index !== -1) {
+          this.reviews[index] = {
+            ...this.reviews[index],
+            isActive: response.isActive,
+            pipelineStatus: response.isActive ? 'approved' : 'manual-review',
+          };
         }
         this.applyFilters();
-        this.successMessage = res.isActive ? 'Review published.' : 'Review unpublished.';
+        this.successMessage = response.isActive ? 'Review published to website.' : 'Review moved back to moderation.';
         setTimeout(() => (this.successMessage = ''), 3000);
       },
       error: () => {
@@ -171,13 +345,11 @@ export class DashboardComponent implements OnInit {
     this.reviewService.markUnhelpful(review.id).subscribe({ error: () => {} });
   }
 
-  // Bulk operations
-
   toggleSelectAll(): void {
     if (this.allSelected) {
-      this.filteredReviews.forEach((r) => this.selectedIds.delete(r.id));
+      this.filteredReviews.forEach((review) => this.selectedIds.delete(review.id));
     } else {
-      this.filteredReviews.forEach((r) => this.selectedIds.add(r.id));
+      this.filteredReviews.forEach((review) => this.selectedIds.add(review.id));
     }
   }
 
@@ -189,16 +361,20 @@ export class DashboardComponent implements OnInit {
     }
   }
 
-  clearSelection(): void { this.selectedIds.clear(); }
+  clearSelection(): void {
+    this.selectedIds.clear();
+  }
 
   onBulkPublish(): void {
     const ids = this.selectedIdsArray;
     this.bulkLoading = true;
     this.reviewService.bulkPublish(ids).subscribe({
       next: (results) => {
-        results.forEach((res) => {
-          const idx = this.reviews.findIndex((r) => r.id === res.id);
-          if (idx !== -1) this.reviews[idx] = { ...this.reviews[idx], isActive: true };
+        results.forEach((result) => {
+          const index = this.reviews.findIndex((review) => review.id === result.id);
+          if (index !== -1) {
+            this.reviews[index] = { ...this.reviews[index], isActive: true, pipelineStatus: 'approved' };
+          }
         });
         this.selectedIds.clear();
         this.applyFilters();
@@ -219,14 +395,16 @@ export class DashboardComponent implements OnInit {
     this.bulkLoading = true;
     this.reviewService.bulkUnpublish(ids).subscribe({
       next: (results) => {
-        results.forEach((res) => {
-          const idx = this.reviews.findIndex((r) => r.id === res.id);
-          if (idx !== -1) this.reviews[idx] = { ...this.reviews[idx], isActive: false };
+        results.forEach((result) => {
+          const index = this.reviews.findIndex((review) => review.id === result.id);
+          if (index !== -1) {
+            this.reviews[index] = { ...this.reviews[index], isActive: false, pipelineStatus: 'manual-review' };
+          }
         });
         this.selectedIds.clear();
         this.applyFilters();
         this.bulkLoading = false;
-        this.successMessage = `${ids.length} review(s) moved to drafts.`;
+        this.successMessage = `${ids.length} review(s) moved to moderation.`;
         setTimeout(() => (this.successMessage = ''), 3000);
       },
       error: () => {
@@ -242,7 +420,7 @@ export class DashboardComponent implements OnInit {
     this.bulkLoading = true;
     this.reviewService.bulkDelete(ids).subscribe({
       next: () => {
-        this.reviews = this.reviews.filter((r) => !ids.includes(r.id));
+        this.reviews = this.reviews.filter((review) => !ids.includes(review.id));
         this.selectedIds.clear();
         this.applyFilters();
         this.bulkLoading = false;
@@ -260,7 +438,7 @@ export class DashboardComponent implements OnInit {
   onDelete(review: Review): void {
     this.reviewService.deleteReview(review.id).subscribe({
       next: () => {
-        this.reviews = this.reviews.filter((r) => r.id !== review.id);
+        this.reviews = this.reviews.filter((item) => item.id !== review.id);
         this.applyFilters();
         this.successMessage = 'Review deleted.';
         setTimeout(() => (this.successMessage = ''), 3000);
@@ -276,7 +454,7 @@ export class DashboardComponent implements OnInit {
     this.showModal = false;
     this.reviewService.createReview(dto).subscribe({
       next: () => {
-        this.successMessage = 'Review submitted successfully!';
+        this.successMessage = 'Review submitted successfully.';
         this.loadReviews();
         setTimeout(() => (this.successMessage = ''), 3500);
       },
@@ -285,5 +463,23 @@ export class DashboardComponent implements OnInit {
         setTimeout(() => (this.error = ''), 5000);
       },
     });
+  }
+
+  trackByReview(index: number, review: Review): string {
+    return review.id;
+  }
+
+  trackByLabel(index: number, item: { label: string }): string {
+    return item.label;
+  }
+
+  pipelineToneClass(status: PipelineStatus | undefined): string {
+    return status === 'approved'
+      ? 'good'
+      : status === 'manual-review'
+        ? 'warn'
+        : status === 'blocked'
+          ? 'danger'
+          : 'default';
   }
 }

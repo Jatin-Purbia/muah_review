@@ -33,6 +33,20 @@
     </div>
   </div>
 
+  <div class="context-row">
+    @if (review.sellerName) {
+      <span class="context-chip">{{ review.sellerName }}</span>
+    }
+    @if (review.productName) {
+      <span class="context-chip product">{{ review.productName }}</span>
+    }
+    @if (review.pipelineStatus) {
+      <span class="context-chip pipeline" [class.flagged]="review.pipelineStatus !== 'approved'">
+        Pipeline {{ review.pipelineScore ?? 0 }}
+      </span>
+    }
+  </div>
+
   <div class="card-header">
     @if (review.creator?.profileImage && review.creator?.profileImage!.trim()) {
       <img class="avatar-img" [src]="review.creator!.profileImage" [alt]="displayName" />
@@ -59,6 +73,16 @@
     }
     <span class="rating-num">{{ review.rating }}.0 / 5</span>
   </div>
+
+  @if (review.segments?.length) {
+    <div class="segment-row">
+      @for (segment of review.segments!.slice(0, 3); track segment.segment) {
+        <span class="segment-pill" [class.negative]="segment.sentiment === 'negative'" [class.neutral]="segment.sentiment === 'neutral'">
+          {{ segment.segment }} {{ segment.score }}
+        </span>
+      }
+    </div>
+  }
 
   <div class="comment-wrap">
     <p class="comment" [class.expanded]="expanded">{{ review.comment }}</p>

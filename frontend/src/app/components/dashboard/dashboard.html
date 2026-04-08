@@ -2,29 +2,29 @@
   <header class="header">
     <div class="header-content">
       <div class="brand">
-        <div class="logo-ring"><span class="logo-letter">L</span></div>
+        <div class="logo-ring"><span class="logo-letter">R</span></div>
         <div>
           <h1 class="brand-title">
-            <span class="muah">Leomaa </span> <span class="thin">Reviews</span>
+            <span class="muah">Review </span> <span class="thin">Intelligence Hub</span>
           </h1>
-          <p class="brand-sub">Demo customer stories dashboard with local sample data</p>
+          <p class="brand-sub">Super admin governance and seller insights for review publishing, moderation, and sentiment analysis.</p>
         </div>
       </div>
 
       <div class="header-right">
         <div class="header-pill">
           <span class="pill-val">{{ reviews.length }}</span>
-          <span class="pill-lbl">Total</span>
+          <span class="pill-lbl">Total Reviews</span>
         </div>
         <div class="header-pill gold">
           <span class="pill-val">{{ averageRating | number:'1.1-1' }}<span class="star-sm">★</span></span>
-          <span class="pill-lbl">Avg Rating</span>
+          <span class="pill-lbl">Network Rating</span>
         </div>
         <div class="header-pill green">
-          <span class="pill-val">{{ publishedCount }}</span>
-          <span class="pill-lbl">Published</span>
+          <span class="pill-val">{{ sellers.length }}</span>
+          <span class="pill-lbl">Active Sellers</span>
         </div>
-        <button class="btn-primary" (click)="showModal = true">Write a Review</button>
+        <button class="btn-primary" (click)="showModal = true">Create Review</button>
       </div>
     </div>
   </header>
@@ -32,22 +32,20 @@
   <main class="main">
     <section class="hero-panel">
       <div class="hero-copy">
-        <span class="hero-eyebrow">Light mode redesign</span>
-        <h2>Warm, editorial styling with fully local demo content.</h2>
+        <span class="hero-eyebrow">Moderation workflow</span>
+        <h2>Published seller reviews enter a scoring pipeline before the main website sees them.</h2>
         <p>
-          This frontend now runs without live API calls, uses dummy review entries only, and presents the moderation flow in a brighter, cleaner layout.
+          Segment analysis scores each review by delivery, service, product quality, complaints, and website experience. The super admin can keep automation on, tune the threshold, or override decisions manually.
         </p>
       </div>
 
-      <div class="hero-metrics">
-        <div class="hero-metric">
-          <span class="hero-metric-value">{{ reviews.length }}</span>
-          <span class="hero-metric-label">Stories loaded</span>
-        </div>
-        <div class="hero-metric">
-          <span class="hero-metric-value">{{ categoryStats.length || categories.length }}</span>
-          <span class="hero-metric-label">Topics tracked</span>
-        </div>
+      <div class="portal-switch">
+        <button class="portal-btn" [class.active]="activePortal === 'super-admin'" (click)="setPortal('super-admin')">
+          Super Admin
+        </button>
+        <button class="portal-btn" [class.active]="activePortal === 'seller'" (click)="setPortal('seller')">
+          Seller Portal
+        </button>
       </div>
     </section>
 
@@ -61,139 +59,387 @@
       </div>
     }
 
-    <app-stats-bar
-      [totalReviews]="reviews.length"
-      [publishedCount]="publishedCount"
-      [unpublishedCount]="unpublishedCount"
-      [averageRating]="averageRating"
-      [ratingDistribution]="ratingDistribution"
-      [categories]="categories"
-      [categoryStats]="categoryStats"
-    />
-
-    @if (categoryStats.length > 0) {
-      <div class="cat-scroll-wrap">
-        <div class="cat-tabs">
-          <button class="cat-tab" [class.active]="selectedCategoryKey === null" (click)="selectCategoryKey(null)">
-            <span class="cat-name">All Reviews</span>
-            <span class="cat-count">{{ reviews.length }}</span>
+    @if (activePortal === 'super-admin') {
+      <section class="section">
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker">Dashboard A</span>
+            <h3>Super Admin Review Command Center</h3>
+            <p>Control the moderation pipeline, inspect all seller reviews, and override publication decisions.</p>
+          </div>
+          <button class="toggle-automation" [class.off]="!pipelineAutomationEnabled" (click)="togglePipelineAutomation()">
+            {{ pipelineAutomationEnabled ? 'Automation enabled' : 'Automation disabled' }}
           </button>
-          @for (stat of categoryStats; track stat.id) {
-            <button
-              class="cat-tab"
-              [class.active]="selectedCategoryKey === (stat.category || '').toLowerCase()"
-              (click)="selectCategoryKey(stat.category || '')"
-            >
-              <span class="cat-name">{{ stat.category }}</span>
-              <span class="cat-count">{{ stat.reviewerCount }}</span>
-              @if (stat.rating) {
-                <span class="cat-rating">{{ stat.rating | number:'1.1-1' }}★</span>
+        </div>
+
+        <div class="metric-grid">
+          @for (metric of pipelineMetrics; track metric.label) {
+            <article class="metric-card" [class.good]="metric.tone === 'good'" [class.warn]="metric.tone === 'warn'" [class.danger]="metric.tone === 'danger'">
+              <span class="metric-label">{{ metric.label }}</span>
+              <strong class="metric-value">{{ metric.value }}</strong>
+              <span class="metric-note">{{ metric.note }}</span>
+            </article>
+          }
+        </div>
+
+        <div class="pipeline-layout">
+          <article class="pipeline-card">
+            <div class="pipeline-header">
+              <div>
+                <span class="section-kicker">Flow</span>
+                <h4>Review publishing pipeline</h4>
+              </div>
+              <div class="threshold-pill">Score threshold {{ automationThreshold }}</div>
+            </div>
+
+            <div class="pipeline-steps">
+              <div class="pipeline-step">
+                <span class="step-index">1</span>
+                <div>
+                  <strong>Seller publishes review</strong>
+                  <p>Any review marked published enters the moderation pipeline automatically.</p>
+                </div>
+              </div>
+              <div class="pipeline-step">
+                <span class="step-index">2</span>
+                <div>
+                  <strong>Segment analysis runs</strong>
+                  <p>Sentiment is scored across delivery, service, product quality, website, returns, and complaints.</p>
+                </div>
+              </div>
+              <div class="pipeline-step">
+                <span class="step-index">3</span>
+                <div>
+                  <strong>Threshold decision</strong>
+                  <p>Reviews above the threshold go live. Mixed or risky reviews are routed to manual review or blocked.</p>
+                </div>
+              </div>
+              <div class="pipeline-step">
+                <span class="step-index">4</span>
+                <div>
+                  <strong>Super admin override</strong>
+                  <p>The super admin can force publish, return to moderation, or disable the automation process entirely.</p>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="queue-card">
+            <div class="pipeline-header">
+              <div>
+                <span class="section-kicker">Queue</span>
+                <h4>Reviews needing attention</h4>
+              </div>
+              <div class="threshold-pill subtle">{{ pendingPipelineReviews.length }} items</div>
+            </div>
+
+            <div class="queue-list">
+              @for (review of pendingPipelineReviews; track review.id) {
+                <div class="queue-item" [class.warn]="review.pipelineStatus === 'manual-review'" [class.danger]="review.pipelineStatus === 'blocked'">
+                  <div class="queue-main">
+                    <strong>{{ review.productName }}</strong>
+                    <span>{{ review.sellerName }} · {{ review.reviewCategory }}</span>
+                  </div>
+                  <div class="queue-score">
+                    <span class="status-tag" [class.warn]="review.pipelineStatus === 'manual-review'" [class.danger]="review.pipelineStatus === 'blocked'">
+                      {{ review.pipelineStatus }}
+                    </span>
+                    <strong>{{ review.pipelineScore }}</strong>
+                  </div>
+                </div>
               }
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <app-stats-bar
+        [totalReviews]="reviews.length"
+        [publishedCount]="publishedCount"
+        [unpublishedCount]="unpublishedCount"
+        [averageRating]="averageRating"
+        [ratingDistribution]="ratingDistribution"
+        [categories]="categories"
+        [categoryStats]="categoryStats"
+      />
+
+      @if (categoryStats.length > 0) {
+        <div class="cat-scroll-wrap">
+          <div class="cat-tabs">
+            <button class="cat-tab" [class.active]="selectedCategoryKey === null" (click)="selectCategoryKey(null)">
+              <span class="cat-name">All Reviews</span>
+              <span class="cat-count">{{ reviews.length }}</span>
             </button>
-          }
-        </div>
-      </div>
-    }
-
-    <div class="section-bar">
-      <div class="tabs">
-        <button class="tab" [class.active]="publishFilter === 'all'" (click)="setPublishFilter('all')">
-          All <span class="tab-count">{{ reviews.length }}</span>
-        </button>
-        <button class="tab tab-published" [class.active]="publishFilter === 'published'" (click)="setPublishFilter('published')">
-          Published <span class="tab-count">{{ publishedCount }}</span>
-        </button>
-        <button class="tab tab-unpublished" [class.active]="publishFilter === 'unpublished'" (click)="setPublishFilter('unpublished')">
-          Drafts <span class="tab-count">{{ unpublishedCount }}</span>
-        </button>
-      </div>
-
-      <div class="filters-inline">
-        <input
-          class="search-input"
-          type="text"
-          placeholder="Search reviews"
-          [(ngModel)]="searchQuery"
-          (ngModelChange)="applyFilters()"
-        />
-        <select class="filter-select" [(ngModel)]="selectedRating" (ngModelChange)="applyFilters()">
-          <option [ngValue]="0">All Ratings</option>
-          @for (star of [5,4,3,2,1]; track star) {
-            <option [ngValue]="star">{{ star }} ★</option>
-          }
-        </select>
-        @if (searchQuery || selectedCategoryKey || selectedRating > 0) {
-          <button class="btn-clear" (click)="clearFilters()">Clear</button>
-        }
-        <span class="result-count">{{ filteredReviews.length }} / {{ reviews.length }}</span>
-      </div>
-    </div>
-
-    @if (someSelected) {
-      <div class="bulk-bar">
-        <span class="bulk-count">{{ selectedCount }} selected</span>
-        <div class="bulk-actions">
-          <button class="bulk-btn btn-publish" (click)="onBulkPublish()" [disabled]="bulkLoading">
-            {{ bulkLoading ? '...' : 'Publish' }}
-          </button>
-          <button class="bulk-btn btn-unpublish" (click)="onBulkUnpublish()" [disabled]="bulkLoading">
-            {{ bulkLoading ? '...' : 'Move to draft' }}
-          </button>
-          <button class="bulk-btn btn-delete" (click)="onBulkDelete()" [disabled]="bulkLoading">
-            {{ bulkLoading ? '...' : 'Delete' }}
-          </button>
-          <button class="bulk-btn btn-cancel" (click)="clearSelection()">Cancel</button>
-        </div>
-      </div>
-    }
-
-    @if (loading) {
-      <div class="reviews-grid">
-        @for (i of [1,2,3,4,5,6]; track i) {
-          <div class="skeleton-card">
-            <div class="skel-line short"></div>
-            <div class="skel-line med"></div>
-            <div class="skel-line long"></div>
-            <div class="skel-line long"></div>
+            @for (stat of categoryStats; track stat.id) {
+              <button
+                class="cat-tab"
+                [class.active]="selectedCategoryKey === (stat.category || '').toLowerCase()"
+                (click)="selectCategoryKey(stat.category || '')"
+              >
+                <span class="cat-name">{{ stat.category }}</span>
+                <span class="cat-count">{{ stat.reviewerCount }}</span>
+                @if (stat.rating) {
+                  <span class="cat-rating">{{ stat.rating | number:'1.1-1' }}★</span>
+                }
+              </button>
+            }
           </div>
-        }
-      </div>
-    }
-
-    @if (!loading) {
-      @if (filteredReviews.length > 0) {
-        <div class="reviews-grid">
-          <div class="select-all-row">
-            <label class="select-check">
-              <input type="checkbox" [checked]="allSelected" (change)="toggleSelectAll()" />
-              <span class="check-indicator"></span>
-            </label>
-            <span class="select-all-label">{{ allSelected ? 'Deselect all' : 'Select all' }}</span>
-          </div>
-          @for (review of filteredReviews; track review.id) {
-            <app-review-card
-              [review]="review"
-              [selected]="isSelected(review.id)"
-              (selectionChange)="toggleSelectOne(review.id)"
-              (togglePublish)="onTogglePublish($event)"
-              (liked)="onLike($event)"
-              (disliked)="onDislike($event)"
-              (deleted)="onDelete($event)"
-            />
-          }
-        </div>
-      } @else {
-        <div class="empty-state">
-          <div class="empty-icon">Reviews</div>
-          <h3>No reviews found</h3>
-          <p>Try adjusting your filters or write the first review.</p>
-          @if (searchQuery || selectedCategoryKey || selectedRating > 0) {
-            <button class="btn-clear" (click)="clearFilters()">Clear filters</button>
-          } @else {
-            <button class="btn-primary mt" (click)="showModal = true">Write first review</button>
-          }
         </div>
       }
+
+      <section class="section">
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker">All reviews</span>
+            <h3>Network-wide moderation desk</h3>
+            <p>See every review from every seller, including pipeline metadata and current publication state.</p>
+          </div>
+        </div>
+
+        <div class="section-bar">
+          <div class="tabs">
+            <button class="tab" [class.active]="publishFilter === 'all'" (click)="setPublishFilter('all')">
+              All <span class="tab-count">{{ reviews.length }}</span>
+            </button>
+            <button class="tab tab-published" [class.active]="publishFilter === 'published'" (click)="setPublishFilter('published')">
+              Published <span class="tab-count">{{ publishedCount }}</span>
+            </button>
+            <button class="tab tab-unpublished" [class.active]="publishFilter === 'unpublished'" (click)="setPublishFilter('unpublished')">
+              In moderation <span class="tab-count">{{ unpublishedCount }}</span>
+            </button>
+          </div>
+
+          <div class="filters-inline">
+            <input
+              class="search-input"
+              type="text"
+              placeholder="Search seller, product, or customer"
+              [(ngModel)]="searchQuery"
+              (ngModelChange)="applyFilters()"
+            />
+            <select class="filter-select" [(ngModel)]="selectedRating" (ngModelChange)="applyFilters()">
+              <option [ngValue]="0">All Ratings</option>
+              @for (star of [5,4,3,2,1]; track star) {
+                <option [ngValue]="star">{{ star }} ★</option>
+              }
+            </select>
+            @if (searchQuery || selectedCategoryKey || selectedRating > 0) {
+              <button class="btn-clear" (click)="clearFilters()">Clear</button>
+            }
+            <span class="result-count">{{ filteredReviews.length }} / {{ reviews.length }}</span>
+          </div>
+        </div>
+
+        @if (someSelected) {
+          <div class="bulk-bar">
+            <span class="bulk-count">{{ selectedCount }} selected</span>
+            <div class="bulk-actions">
+              <button class="bulk-btn btn-publish" (click)="onBulkPublish()" [disabled]="bulkLoading">
+                {{ bulkLoading ? '...' : 'Publish' }}
+              </button>
+              <button class="bulk-btn btn-unpublish" (click)="onBulkUnpublish()" [disabled]="bulkLoading">
+                {{ bulkLoading ? '...' : 'Move to moderation' }}
+              </button>
+              <button class="bulk-btn btn-delete" (click)="onBulkDelete()" [disabled]="bulkLoading">
+                {{ bulkLoading ? '...' : 'Delete' }}
+              </button>
+              <button class="bulk-btn btn-cancel" (click)="clearSelection()">Cancel</button>
+            </div>
+          </div>
+        }
+
+        @if (loading) {
+          <div class="reviews-grid">
+            @for (i of [1,2,3,4,5,6]; track i) {
+              <div class="skeleton-card">
+                <div class="skel-line short"></div>
+                <div class="skel-line med"></div>
+                <div class="skel-line long"></div>
+                <div class="skel-line long"></div>
+              </div>
+            }
+          </div>
+        } @else {
+          @if (filteredReviews.length > 0) {
+            <div class="reviews-grid">
+              <div class="select-all-row">
+                <label class="select-check">
+                  <input type="checkbox" [checked]="allSelected" (change)="toggleSelectAll()" />
+                  <span class="check-indicator"></span>
+                </label>
+                <span class="select-all-label">{{ allSelected ? 'Deselect all' : 'Select all' }}</span>
+              </div>
+              @for (review of filteredReviews; track review.id) {
+                <app-review-card
+                  [review]="review"
+                  [selected]="isSelected(review.id)"
+                  (selectionChange)="toggleSelectOne(review.id)"
+                  (togglePublish)="onTogglePublish($event)"
+                  (liked)="onLike($event)"
+                  (disliked)="onDislike($event)"
+                  (deleted)="onDelete($event)"
+                />
+              }
+            </div>
+          } @else {
+            <div class="empty-state">
+              <div class="empty-icon">Reviews</div>
+              <h3>No reviews found</h3>
+              <p>Try adjusting your filters or create the first review.</p>
+              <button class="btn-primary mt" (click)="showModal = true">Create review</button>
+            </div>
+          }
+        }
+      </section>
+    } @else {
+      <section class="section">
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker">Dashboard B</span>
+            <h3>Seller Review Performance Dashboard</h3>
+            <p>Each seller sees only their own product reviews and the pipeline analysis generated for them.</p>
+          </div>
+
+          <select class="seller-select" [(ngModel)]="selectedSellerId">
+            @for (seller of sellers; track seller.id) {
+              <option [value]="seller.id">{{ seller.name }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="seller-hero">
+          <div class="seller-summary-card highlight">
+            <span class="section-kicker">Seller focus</span>
+            <h4>{{ selectedSeller?.name }}</h4>
+            <p>Review health, sentiment, and publishing visibility for this seller’s products only.</p>
+          </div>
+          <div class="seller-summary-card">
+            <span class="metric-label">Total Reviews</span>
+            <strong class="metric-value">{{ selectedSeller?.totalReviews ?? 0 }}</strong>
+            <span class="metric-note">{{ sellerPublishedReviews.length }} published</span>
+          </div>
+          <div class="seller-summary-card">
+            <span class="metric-label">Avg Rating</span>
+            <strong class="metric-value">{{ selectedSeller?.averageRating ?? 0 | number:'1.1-1' }}</strong>
+            <span class="metric-note">Across all owned products</span>
+          </div>
+          <div class="seller-summary-card">
+            <span class="metric-label">Customer Happiness</span>
+            <strong class="metric-value">{{ selectedSeller?.satisfaction ?? 0 }}%</strong>
+            <span class="metric-note">{{ selectedSeller?.positiveShare ?? 0 }}% strongly positive reviews</span>
+          </div>
+        </div>
+
+        <div class="seller-layout">
+          <article class="analysis-card">
+            <div class="pipeline-header">
+              <div>
+                <span class="section-kicker">Sentiment</span>
+                <h4>Are people happy with this seller’s products?</h4>
+              </div>
+            </div>
+
+            <div class="bar-stack">
+              @for (item of sellerMoodBars; track item.label) {
+                <div class="bar-item">
+                  <div class="bar-copy">
+                    <span>{{ item.label }}</span>
+                    <strong>{{ item.value }}%</strong>
+                  </div>
+                  <div class="bar-track large">
+                    <div class="bar-fill" [class.good]="item.tone === 'good'" [class.warn]="item.tone === 'warn'" [class.danger]="item.tone === 'danger'" [style.width.%]="item.value"></div>
+                  </div>
+                </div>
+              }
+            </div>
+          </article>
+
+          <article class="analysis-card">
+            <div class="pipeline-header">
+              <div>
+                <span class="section-kicker">Trend</span>
+                <h4>Monthly satisfaction trend</h4>
+              </div>
+            </div>
+
+            <div class="trend-chart">
+              @for (item of sellerTrend; track item.month) {
+                <div class="trend-col">
+                  <div class="trend-bar-wrap">
+                    <div class="trend-bar" [style.height.%]="item.score"></div>
+                  </div>
+                  <strong>{{ item.score }}</strong>
+                  <span>{{ item.month }}</span>
+                </div>
+              }
+            </div>
+          </article>
+        </div>
+
+        <div class="seller-layout">
+          <article class="analysis-card">
+            <div class="pipeline-header">
+              <div>
+                <span class="section-kicker">Category detail</span>
+                <h4>How each review category performs</h4>
+              </div>
+            </div>
+
+            <div class="category-table">
+              @for (item of sellerCategoryPerformance; track item.category) {
+                <div class="category-row">
+                  <div>
+                    <strong>{{ item.category }}</strong>
+                    <span>{{ item.mentions }} mentions</span>
+                  </div>
+                  <div class="category-score">{{ item.rating | number:'1.1-1' }}★</div>
+                </div>
+              }
+            </div>
+          </article>
+
+          <article class="analysis-card">
+            <div class="pipeline-header">
+              <div>
+                <span class="section-kicker">Pipeline signals</span>
+                <h4>What the analysis engine is saying</h4>
+              </div>
+            </div>
+
+            <div class="signal-list">
+              @for (signal of sellerTopSignals; track signal.title) {
+                <div class="signal-card" [class.good]="signal.tone === 'good'" [class.warn]="signal.tone === 'warn'" [class.danger]="signal.tone === 'danger'">
+                  <strong>{{ signal.title }}</strong>
+                  <p>{{ signal.body }}</p>
+                </div>
+              }
+            </div>
+          </article>
+        </div>
+
+        <section class="section nested">
+          <div class="section-heading">
+            <div>
+              <span class="section-kicker">Seller reviews</span>
+              <h3>Owned reviews only</h3>
+              <p>These are the reviews and pipeline decisions visible to the selected seller.</p>
+            </div>
+          </div>
+
+          <div class="reviews-grid">
+            @for (review of sellerReviews; track review.id) {
+              <app-review-card
+                [review]="review"
+                [selected]="false"
+                (togglePublish)="onTogglePublish($event)"
+                (liked)="onLike($event)"
+                (disliked)="onDislike($event)"
+                (deleted)="onDelete($event)"
+              />
+            }
+          </div>
+        </section>
+      </section>
     }
   </main>
 
