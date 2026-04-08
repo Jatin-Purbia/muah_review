@@ -1,8 +1,8 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
+  background: rgba(248, 250, 252, 0.75);
+  backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -11,18 +11,26 @@
 }
 
 .modal {
-  background: #1e1e2e;
-  border: 1px solid #2a2a3e;
-  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 28px;
   width: 100%;
   max-width: 520px;
   max-height: 90vh;
   overflow-y: auto;
   animation: slideUp 0.2s ease;
+  box-shadow: 0 30px 80px rgba(148, 163, 184, 0.22);
 
   @keyframes slideUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 }
 
@@ -36,22 +44,25 @@
     margin: 0;
     font-size: 1.2rem;
     font-weight: 700;
-    color: #e8e8f0;
+    color: #0f172a;
   }
 }
 
 .close-btn {
-  background: #2a2a3e;
-  border: none;
-  color: #9ca3af;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #c2410c;
+  min-width: 72px;
+  height: 36px;
+  border-radius: 999px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
   transition: background 0.2s;
 
-  &:hover { background: #3a3a5e; color: #e8e8f0; }
+  &:hover {
+    background: #ffedd5;
+  }
 }
 
 .modal-body {
@@ -59,9 +70,9 @@
 }
 
 .form-error {
-  background: #7f1d1d22;
-  border: 1px solid #dc2626;
-  color: #fca5a5;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
   padding: 0.7rem 1rem;
   border-radius: 8px;
   font-size: 0.85rem;
@@ -74,34 +85,44 @@
   label {
     display: block;
     font-size: 0.8rem;
-    color: #9ca3af;
+    color: #475569;
     margin-bottom: 0.4rem;
     font-weight: 500;
   }
 
-  input, textarea {
+  input,
+  textarea {
     width: 100%;
-    background: #12121c;
-    border: 1px solid #2a2a3e;
-    color: #e8e8f0;
+    background: #ffffff;
+    border: 1px solid #dbe2ea;
+    color: #0f172a;
     padding: 0.65rem 0.9rem;
-    border-radius: 8px;
+    border-radius: 12px;
     font-size: 0.9rem;
     outline: none;
     box-sizing: border-box;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s;
     font-family: inherit;
 
-    &:focus { border-color: #7c3aed; }
-    &::placeholder { color: #4b5563; }
+    &:focus {
+      border-color: #f97316;
+      box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1);
+    }
+
+    &::placeholder {
+      color: #94a3b8;
+    }
   }
 
-  textarea { resize: vertical; min-height: 100px; }
+  textarea {
+    resize: vertical;
+    min-height: 100px;
+  }
 }
 
 .char-count {
   font-size: 0.72rem;
-  color: #4b5563;
+  color: #64748b;
   display: block;
   text-align: right;
   margin-top: 0.25rem;
@@ -117,19 +138,24 @@
   background: none;
   border: none;
   font-size: 1.75rem;
-  color: #2a2a3e;
+  color: #cbd5e1;
   cursor: pointer;
   padding: 0;
   line-height: 1;
   transition: color 0.1s, transform 0.1s;
 
-  &.active { color: #f59e0b; }
-  &:hover { transform: scale(1.15); }
+  &.active {
+    color: #f59e0b;
+  }
+
+  &:hover {
+    transform: scale(1.15);
+  }
 }
 
 .rating-label {
   font-size: 0.85rem;
-  color: #9ca3af;
+  color: #64748b;
   margin-left: 0.5rem;
 }
 
@@ -141,18 +167,20 @@
     align-items: center;
     gap: 0.6rem;
     cursor: pointer;
-    color: #e8e8f0;
+    color: #0f172a;
     font-size: 0.9rem;
     font-weight: 500;
 
-    input[type='checkbox'] { display: none; }
+    input[type='checkbox'] {
+      display: none;
+    }
 
     .toggle-track {
       width: 40px;
       height: 22px;
-      background: #2a2a3e;
+      background: #e2e8f0;
       border-radius: 11px;
-      border: 1px solid #3a3a5e;
+      border: 1px solid #cbd5e1;
       position: relative;
       transition: background 0.2s, border-color 0.2s;
       flex-shrink: 0;
@@ -165,14 +193,14 @@
         width: 16px;
         height: 16px;
         border-radius: 50%;
-        background: #6b7280;
+        background: #ffffff;
         transition: transform 0.2s, background 0.2s;
       }
     }
 
     input:checked + .toggle-track {
-      background: #7c3aed;
-      border-color: #7c3aed;
+      background: #f97316;
+      border-color: #f97316;
 
       &::after {
         transform: translateX(18px);
@@ -182,9 +210,9 @@
   }
 
   .toggle-hint {
-    margin: 0.3rem 0 0 0;
+    margin: 0.3rem 0 0;
     font-size: 0.75rem;
-    color: #6b7280;
+    color: #64748b;
   }
 }
 
@@ -196,30 +224,42 @@
 }
 
 .btn-cancel {
-  background: #2a2a3e;
-  border: 1px solid #3a3a5e;
-  color: #9ca3af;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
   padding: 0.65rem 1.2rem;
-  border-radius: 8px;
+  border-radius: 999px;
   font-size: 0.9rem;
   cursor: pointer;
   transition: background 0.2s;
 
-  &:hover:not(:disabled) { background: #3a3a5e; }
-  &:disabled { opacity: 0.5; cursor: default; }
+  &:hover:not(:disabled) {
+    background: #f8fafc;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
 }
 
 .btn-submit {
-  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  background: linear-gradient(135deg, #f97316, #fb7185);
   border: none;
   color: white;
   padding: 0.65rem 1.4rem;
-  border-radius: 8px;
+  border-radius: 999px;
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   transition: opacity 0.2s;
 
-  &:hover:not(:disabled) { opacity: 0.9; }
-  &:disabled { opacity: 0.5; cursor: default; }
+  &:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
 }

@@ -24,17 +24,18 @@ export class StatsBarComponent {
   }
 
   stars(n: number): string[] {
-    return Array(5).fill('').map((_, i) => (i < Math.round(n) ? '★' : '☆'));
+    return Array(5).fill('').map((_, index) => (index < Math.round(n) ? '★' : '☆'));
   }
 
   get categoryDisplay(): { name: string; count: number; rating: number }[] {
     if (this.categoryStats.length > 0) {
-      return this.categoryStats.map((s) => ({
-        name: s.category,
-        count: s.reviewerCount ?? 0,
-        rating: s.rating ?? 0,
+      return this.categoryStats.map((item) => ({
+        name: item.category,
+        count: item.reviewerCount ?? 0,
+        rating: item.rating ?? 0,
       }));
     }
-    return this.categories.map((c) => ({ name: c, count: 0, rating: 0 }));
+
+    return this.categories.map((category) => ({ name: category, count: 0, rating: 0 }));
   }
 }

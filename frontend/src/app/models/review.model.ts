@@ -1,4 +1,4 @@
-// ─── Site Review Models ───────────────────────────────────────────────────────
+// Site review models
 
 export interface ReviewCreator {
   userId: string;
@@ -41,7 +41,7 @@ export interface ReviewUpdate {
   rating: number;
 }
 
-// ─── Search / Filter ──────────────────────────────────────────────────────────
+// Search and filter
 
 export interface SiteReviewFilter {
   currentPage?: number;
@@ -65,13 +65,11 @@ export interface SiteReviewSearchResult {
   };
 }
 
-/** DTO for creating a new review from the admin panel */
 export interface CreateSiteReviewDto {
   reviewCategory: string;
   customerName: string;
   rating: number;
   comment: string;
-  /** true = publish immediately, false = save as draft */
   isActive: boolean;
 }
 
@@ -80,14 +78,13 @@ export interface SiteCategoryReview {
   category: string;
   reviewerCount: number;
   rating: number;
-  /** computed on client */
   key?: string | null;
   avgReview?: number;
   reviewCount?: number;
   reviewCategory?: string;
 }
 
-// ─── Product Review Models ────────────────────────────────────────────────────
+// Product review models
 
 export interface ProductReview {
   productId: string;
@@ -113,7 +110,7 @@ export interface ProductReviewCreate {
   sizeFitRating?: number;
 }
 
-// ─── Rating Config ────────────────────────────────────────────────────────────
+// Rating config
 
 export interface RatingBreakdown {
   ratingsText: string;
@@ -124,13 +121,13 @@ export interface RatingBreakdown {
 }
 
 export const RATING_CONFIG: RatingBreakdown[] = [
-  { ratingsText: 'Excellent',     starNumber: 5, progress: 0, raterCount: 0, progressColor: '#FFC800' },
-  { ratingsText: 'Good',          starNumber: 4, progress: 0, raterCount: 0, progressColor: '#FFC800' },
-  { ratingsText: 'Average',       starNumber: 3, progress: 0, raterCount: 0, progressColor: '#FFC800' },
+  { ratingsText: 'Excellent', starNumber: 5, progress: 0, raterCount: 0, progressColor: '#FFC800' },
+  { ratingsText: 'Good', starNumber: 4, progress: 0, raterCount: 0, progressColor: '#FFC800' },
+  { ratingsText: 'Average', starNumber: 3, progress: 0, raterCount: 0, progressColor: '#FFC800' },
   { ratingsText: 'Below Average', starNumber: 2, progress: 0, raterCount: 0, progressColor: '#FFC800' },
-  { ratingsText: 'Poor',          starNumber: 1, progress: 0, raterCount: 0, progressColor: '#FFC800' },
+  { ratingsText: 'Poor', starNumber: 1, progress: 0, raterCount: 0, progressColor: '#FFC800' },
 ];
 
-// ─── Misc ─────────────────────────────────────────────────────────────────────
+// Misc
 
 export type PublishFilter = 'all' | 'published' | 'unpublished';

@@ -1,15 +1,13 @@
 <div class="dashboard">
-
-  <!-- ═══════════════════ HEADER ═══════════════════ -->
   <header class="header">
     <div class="header-content">
       <div class="brand">
-        <div class="logo-ring"><span class="logo-letter">M</span></div>
+        <div class="logo-ring"><span class="logo-letter">L</span></div>
         <div>
           <h1 class="brand-title">
-            <span class="muah">MUAH</span> <span class="thin">Reviews</span>
+            <span class="muah">Leomaa </span> <span class="thin">Reviews</span>
           </h1>
-          <p class="brand-sub">Customer Testimonials &middot; E-Commerce</p>
+          <p class="brand-sub">Demo customer stories dashboard with local sample data</p>
         </div>
       </div>
 
@@ -26,25 +24,43 @@
           <span class="pill-val">{{ publishedCount }}</span>
           <span class="pill-lbl">Published</span>
         </div>
-        <button class="btn-primary" (click)="showModal = true">✦ Write a Review</button>
+        <button class="btn-primary" (click)="showModal = true">Write a Review</button>
       </div>
     </div>
   </header>
 
   <main class="main">
+    <section class="hero-panel">
+      <div class="hero-copy">
+        <span class="hero-eyebrow">Light mode redesign</span>
+        <h2>Warm, editorial styling with fully local demo content.</h2>
+        <p>
+          This frontend now runs without live API calls, uses dummy review entries only, and presents the moderation flow in a brighter, cleaner layout.
+        </p>
+      </div>
 
-    <!-- Alerts -->
+      <div class="hero-metrics">
+        <div class="hero-metric">
+          <span class="hero-metric-value">{{ reviews.length }}</span>
+          <span class="hero-metric-label">Stories loaded</span>
+        </div>
+        <div class="hero-metric">
+          <span class="hero-metric-value">{{ categoryStats.length || categories.length }}</span>
+          <span class="hero-metric-label">Topics tracked</span>
+        </div>
+      </div>
+    </section>
+
     @if (successMessage) {
-      <div class="alert alert-success"><span class="alert-icon">✓</span> {{ successMessage }}</div>
+      <div class="alert alert-success"><span class="alert-icon">Success</span> {{ successMessage }}</div>
     }
     @if (error) {
       <div class="alert alert-error">
-        <span class="alert-icon">⚠</span> {{ error }}
+        <span class="alert-icon">Issue</span> {{ error }}
         <button class="retry-btn" (click)="loadReviews()">Retry</button>
       </div>
     }
 
-    <!-- Stats Bar -->
     <app-stats-bar
       [totalReviews]="reviews.length"
       [publishedCount]="publishedCount"
@@ -55,7 +71,6 @@
       [categoryStats]="categoryStats"
     />
 
-    <!-- Category Tabs (from API statistics) -->
     @if (categoryStats.length > 0) {
       <div class="cat-scroll-wrap">
         <div class="cat-tabs">
@@ -80,7 +95,6 @@
       </div>
     }
 
-    <!-- Status Tabs + Inline Filters -->
     <div class="section-bar">
       <div class="tabs">
         <button class="tab" [class.active]="publishFilter === 'all'" (click)="setPublishFilter('all')">
@@ -98,7 +112,7 @@
         <input
           class="search-input"
           type="text"
-          placeholder="🔍  Search reviews..."
+          placeholder="Search reviews"
           [(ngModel)]="searchQuery"
           (ngModelChange)="applyFilters()"
         />
@@ -109,32 +123,30 @@
           }
         </select>
         @if (searchQuery || selectedCategoryKey || selectedRating > 0) {
-          <button class="btn-clear" (click)="clearFilters()">✕ Clear</button>
+          <button class="btn-clear" (click)="clearFilters()">Clear</button>
         }
         <span class="result-count">{{ filteredReviews.length }} / {{ reviews.length }}</span>
       </div>
     </div>
 
-    <!-- Bulk Action Bar (shown when reviews are selected) -->
     @if (someSelected) {
       <div class="bulk-bar">
         <span class="bulk-count">{{ selectedCount }} selected</span>
         <div class="bulk-actions">
           <button class="bulk-btn btn-publish" (click)="onBulkPublish()" [disabled]="bulkLoading">
-            {{ bulkLoading ? '…' : '✓ Publish' }}
+            {{ bulkLoading ? '...' : 'Publish' }}
           </button>
           <button class="bulk-btn btn-unpublish" (click)="onBulkUnpublish()" [disabled]="bulkLoading">
-            {{ bulkLoading ? '…' : 'Unpublish' }}
+            {{ bulkLoading ? '...' : 'Move to draft' }}
           </button>
           <button class="bulk-btn btn-delete" (click)="onBulkDelete()" [disabled]="bulkLoading">
-            {{ bulkLoading ? '…' : '🗑 Delete' }}
+            {{ bulkLoading ? '...' : 'Delete' }}
           </button>
-          <button class="bulk-btn btn-cancel" (click)="clearSelection()">✕ Cancel</button>
+          <button class="bulk-btn btn-cancel" (click)="clearSelection()">Cancel</button>
         </div>
       </div>
     }
 
-    <!-- Loading Skeletons -->
     @if (loading) {
       <div class="reviews-grid">
         @for (i of [1,2,3,4,5,6]; track i) {
@@ -148,7 +160,6 @@
       </div>
     }
 
-    <!-- Reviews Grid -->
     @if (!loading) {
       @if (filteredReviews.length > 0) {
         <div class="reviews-grid">
@@ -173,7 +184,7 @@
         </div>
       } @else {
         <div class="empty-state">
-          <div class="empty-icon">📭</div>
+          <div class="empty-icon">Reviews</div>
           <h3>No reviews found</h3>
           <p>Try adjusting your filters or write the first review.</p>
           @if (searchQuery || selectedCategoryKey || selectedRating > 0) {
@@ -184,10 +195,8 @@
         </div>
       }
     }
-
   </main>
 
-  <!-- Add Review Modal -->
   @if (showModal) {
     <app-add-review-modal
       [categories]="categories"
@@ -195,5 +204,4 @@
       (cancelled)="showModal = false"
     />
   }
-
 </div>

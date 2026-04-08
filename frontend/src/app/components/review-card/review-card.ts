@@ -36,7 +36,7 @@ export class ReviewCardComponent {
   }
 
   get stars(): string[] {
-    return Array(5).fill('').map((_, i) => (i < this.review.rating ? '★' : '☆'));
+    return Array(5).fill('').map((_, index) => (index < this.review.rating ? '★' : '☆'));
   }
 
   get displayName(): string {
@@ -46,7 +46,7 @@ export class ReviewCardComponent {
   get initials(): string {
     return this.displayName
       .split(' ')
-      .map((n) => n[0] || '')
+      .map((name) => name[0] || '')
       .join('')
       .toUpperCase()
       .slice(0, 2);
@@ -54,15 +54,16 @@ export class ReviewCardComponent {
 
   get categoryColor(): string {
     const map: Record<string, string> = {
-      product:  '#10b981',
-      products: '#10b981',
-      service:  '#3b82f6',
-      delivery: '#f59e0b',
-      quality:  '#8b5cf6',
-      support:  '#ec4899',
-      general:  '#6b7280',
+      product: '#f97316',
+      products: '#f97316',
+      service: '#0ea5e9',
+      delivery: '#14b8a6',
+      quality: '#8b5cf6',
+      support: '#ec4899',
+      general: '#64748b',
     };
-    return map[(this.review.reviewCategory || '').toLowerCase()] || '#7c3aed';
+
+    return map[(this.review.reviewCategory || '').toLowerCase()] || '#ea580c';
   }
 
   get commentNeedsExpansion(): boolean {
