@@ -40,14 +40,32 @@
         <p>{{ review.description }}</p>
       </div>
 
-      @if (review.pipelineScore !== undefined) {
-        <div class="stats-section">
-          <div class="stat">
-            <span class="stat-label">Pipeline Score</span>
-            <span class="stat-value">{{ review.pipelineScore }}</span>
-          </div>
+      <div class="keyword-section">
+        <div class="keyword-header">
+          <span class="keyword-kicker">Highlights</span>
+          <h4>{{ categoryReasonTitle }}</h4>
         </div>
-      }
+        <div class="keyword-list">
+          @for (item of highlightedKeywords; track item.label) {
+            <span class="keyword-chip" [class.good]="item.tone === 'good'" [class.warn]="item.tone === 'warn'" [class.danger]="item.tone === 'danger'">
+              {{ item.label }}
+            </span>
+          }
+        </div>
+      </div>
+
+      <div class="stats-section">
+        <div class="stat">
+          <span class="stat-label">Pipeline Score</span>
+          <span class="stat-value">{{ pipelineDisplay }}</span>
+        </div>
+        @if (review.sentimentScore !== undefined) {
+          <div class="stat">
+            <span class="stat-label">Sentiment Score</span>
+            <span class="stat-value">{{ review.sentimentScore }}</span>
+          </div>
+        }
+      </div>
     </div>
 
     <div class="modal-footer">

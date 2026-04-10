@@ -3,6 +3,10 @@ from app.models.enums import ReviewStatus
 
 
 class FusionModerationService:
+    @staticmethod
+    def _clamp(value: float) -> float:
+        return max(0.0, min(1.0, value))
+
     def decide(
         self,
         *,
@@ -53,30 +57,66 @@ class FusionModerationService:
         if image_findings or video_findings:
             conflict_flags.append({"type": "media_findings", "count": len(image_findings) + len(video_findings)})
 
-        final_score = round(
-            (text_analysis.overall_score * 0.45) +
-            (rating_signal["rating_score"] * 0.25) +
-            (media_score * 0.30),
-            2,
-        )
+        # Strong mismatch detection: rating vs text analysis conflict
+        has_mismatch = rating_signal["mismatch"]
+        mismatch_severity = rating_signal["delta"]
 
-        if rating_signal["mismatch"] or image_findings or video_findings:
-            if final_score >= config.publish_threshold:
+        safety_score = self._clamp(1.0 - ((text_analysis.toxicity_score * 0.6) + (text_analysis.spam_score * 0.4)))
+        content_score = self._clamp((text_analysis.overall_score * 0.7) + (media_score * 0.3))
+        base_score = round((content_score * 0.8) + (safety_score * 0.2), 2)
+
+        if has_mismatch:
+            mismatch_penalty = min(0.2, max(0.0, mismatch_severity - 0.35) * 0.6)
+            final_score = round(self._clamp(base_score - mismatch_penalty), 2)
+
+            text_type = "positive" if text_analysis.overall_score >= 0.65 else "negative" if text_analysis.overall_score <= 0.35 else "neutral"
+            rating_type = "high" if rating_signal["rating_score"] >= 0.65 else "low" if rating_signal["rating_score"] <= 0.35 else "medium"
+
+            summary_detail = (
+                f"MISMATCH DETECTED: {text_type.upper()} text ({text_analysis.overall_score:.2f}) "
+                f"contradicts {rating_type.upper()} rating ({rating_signal['rating_score']:.2f}). "
+                f"Severity: {mismatch_severity:.0%}. Base score {base_score:.2f} adjusted to {final_score:.2f}."
+            )
+        else:
+            final_score = base_score
+            summary_detail = f"Text sentiment: {text_analysis.overall_sentiment}. Rating alignment: consistent."
+
+        if has_mismatch:
+            # Mismatch detected - require higher threshold or manual review
+            if mismatch_severity >= 0.50:
+                # Severe mismatch (e.g., 1 star with positive text or 5 stars with negative text)
                 decision = ReviewStatus.PENDING_MANUAL_REVIEW
-                reason = "High confidence review has modality conflicts and requires manual review."
+                reason = f"⚠️ SEVERE MISMATCH: {summary_detail} Requires human verification due to suspicious review pattern."
+            elif final_score >= config.publish_threshold:
+                decision = ReviewStatus.PENDING_MANUAL_REVIEW
+                reason = f"⚠️ CONFLICT: {summary_detail} Despite adjusted score, manual verification required."
             elif final_score >= config.manual_review_threshold:
                 decision = ReviewStatus.PENDING_MANUAL_REVIEW
-                reason = "Mixed evidence across text, rating, or media."
+                reason = f"⚠️ MISALIGNED: {summary_detail} Text and rating don't match."
             else:
                 decision = ReviewStatus.REJECTED
-                reason = "Low score with conflicting evidence."
+                reason = f"❌ UNRELIABLE: {summary_detail} Mismatch combined with low score indicates fraudulent or careless review."
+        elif image_findings or video_findings:
+            # Media findings without text mismatch
+            if final_score >= config.publish_threshold:
+                decision = ReviewStatus.PENDING_MANUAL_REVIEW
+                reason = "High confidence review has media findings and requires manual review."
+            elif final_score >= config.manual_review_threshold:
+                decision = ReviewStatus.PENDING_MANUAL_REVIEW
+                reason = "Mixed evidence with media findings."
+            else:
+                decision = ReviewStatus.REJECTED
+                reason = "Low score with negative media findings."
         elif final_score >= config.publish_threshold and config.auto_publish_enabled:
+            # No conflicts, high score, auto-publish
             decision = ReviewStatus.PUBLISHED
-            reason = "Review meets auto-publish threshold."
+            reason = "Review meets auto-publish threshold with consistent text-rating-media alignment."
         elif final_score >= config.manual_review_threshold:
+            # No conflicts, medium score
             decision = ReviewStatus.PENDING_MANUAL_REVIEW
             reason = "Review is acceptable but does not meet auto-publish threshold."
         else:
+            # Low score, no special conditions
             decision = ReviewStatus.REJECTED
             reason = "Review score below manual review threshold."
 
@@ -90,6 +130,11 @@ class FusionModerationService:
             analytics_payload={
                 "sentiment": text_analysis.overall_sentiment,
                 "summary": text_analysis.summary,
+                "context": summary_detail,
+                "base_score": base_score if has_mismatch else final_score,
+                "final_score": final_score,
+                "mismatch_detected": has_mismatch,
+                "mismatch_severity": float(mismatch_severity) if has_mismatch else 0.0,
                 "top_aspects": text_analysis.aspect_json,
             },
         )

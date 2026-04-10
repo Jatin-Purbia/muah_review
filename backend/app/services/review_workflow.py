@@ -131,18 +131,58 @@ class ReviewWorkflowService:
         }
 
     def publish_review(self, review_id: str, request: ManualModerationRequest) -> Review:
+        """Publish a review - runs through pipeline to validate consistency."""
         review = self.repo.get_review(review_id)
         if not review:
             raise HTTPException(status_code=404, detail="Review not found")
+
         previous_status = review.status
-        updated = self.repo.update_review_status(review_id, ReviewStatus.PUBLISHED, is_published=True)
+
+        # Re-analyze review using pipeline before publishing
+        text_analysis = self.repo.get_text_analysis(review_id)
+        if not text_analysis:
+            # If no analysis exists yet, analyze now
+            text_analysis = self.text_service.analyze(review)
+            self.repo.save_text_analysis(text_analysis)
+
+        media_items = self.repo.get_review_media(review_id)
+        media_score = 0.6 if media_items else 0.5
+
+        rating_signal = self.rating_service.detect_mismatch(review.star_rating, text_analysis.overall_score, media_score)
+        config = self.config_service.get()
+
+        # Get fusion decision to validate the review
+        decision = self.fusion_service.decide(
+            review_id=review_id,
+            config=config,
+            text_analysis=text_analysis,
+            rating_signal=rating_signal,
+            media_score=media_score,
+            image_findings=[],
+            video_findings=[],
+        )
+
+        # If there's a severe mismatch, keep as draft instead of publishing
+        if rating_signal["mismatch"] and rating_signal["delta"] >= 0.50:
+            final_status = ReviewStatus.PENDING_MANUAL_REVIEW
+            reason = f"Pipeline validation: Severe mismatch detected. Text sentiment: {text_analysis.overall_sentiment}, Rating score: {rating_signal['rating_score']}. Kept as draft for review."
+        elif decision.decision != ReviewStatus.PUBLISHED:
+            # Pipeline recommends not publishing
+            final_status = decision.decision
+            reason = f"Pipeline validation: {decision.decision_reason}"
+        else:
+            # Pipeline validates - safe to publish
+            final_status = ReviewStatus.PUBLISHED
+            reason = request.reason
+
+        updated = self.repo.update_review_status(review_id, final_status, is_published=(final_status == ReviewStatus.PUBLISHED))
         self.audit_service.log(
             review_id,
             action_by=request.actor,
             action_type=ActionType.MANUAL_OVERRIDE,
             previous_status=previous_status,
-            new_status=ReviewStatus.PUBLISHED,
-            reason=request.reason,
+            new_status=final_status,
+            reason=reason,
         )
         return updated
 

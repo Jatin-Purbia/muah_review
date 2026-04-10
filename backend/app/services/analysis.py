@@ -1,4 +1,5 @@
 import json
+import re
 from statistics import mean
 
 try:
@@ -17,15 +18,36 @@ class TextAnalysisService:
     TOXIC_TERMS = {"idiot", "stupid", "hate"}
     SPAM_TERMS = {"buy now", "discount", "promo"}
 
+    @classmethod
+    def _tokenize(cls, text: str) -> list[str]:
+        return re.findall(r"[a-z']+", text.lower())
+
+    @classmethod
+    def _score_text(cls, text: str) -> tuple[float, str, int, int]:
+        tokens = cls._tokenize(text)
+        joined = " ".join(tokens)
+
+        positive_hits = sum(1 for word in cls.POSITIVE_TERMS if word in joined)
+        negative_hits = sum(1 for word in cls.NEGATIVE_TERMS if word in joined)
+
+        sentiment_score = 0.5 + ((positive_hits - negative_hits) * 0.16)
+
+        # Reward concise, opinionated text so genuine short reviews are not treated as neutral.
+        if len(tokens) >= 3 and positive_hits > 0 and negative_hits == 0:
+            sentiment_score += 0.1
+        if len(tokens) >= 5 and (positive_hits + negative_hits) > 0:
+            sentiment_score += 0.05
+
+        sentiment_score = max(0.0, min(1.0, sentiment_score))
+        sentiment = "positive" if sentiment_score >= 0.62 else "negative" if sentiment_score <= 0.38 else "mixed"
+        return round(sentiment_score, 2), sentiment, positive_hits, negative_hits
+
     def analyze(self, review: Review) -> ReviewTextAnalysis:
         # Analyze title + description
         text = (review.title + " " + review.description).lower()
-        positive_hits = sum(1 for word in self.POSITIVE_TERMS if word in text)
-        negative_hits = sum(1 for word in self.NEGATIVE_TERMS if word in text)
+        sentiment_score, sentiment, positive_hits, negative_hits = self._score_text(text)
         toxicity_hits = sum(1 for word in self.TOXIC_TERMS if word in text)
         spam_hits = sum(1 for word in self.SPAM_TERMS if word in text)
-        sentiment_score = max(0.0, min(1.0, 0.5 + ((positive_hits - negative_hits) * 0.12)))
-        sentiment = "positive" if sentiment_score >= 0.65 else "negative" if sentiment_score <= 0.35 else "mixed"
 
         aspects = [
             {"aspect": "product_quality", "sentiment": sentiment, "score": round(sentiment_score, 2)},
@@ -202,18 +224,9 @@ Respond ONLY with valid JSON (no markdown):
     def _fallback_analysis(self, review: Review) -> ReviewTextAnalysis:
         """Fallback to basic keyword analysis if Ollama unavailable."""
         text = (review.title + " " + review.description).lower()
-
-        # Simple heuristics for fallback
-        positive_keywords = {"good", "great", "love", "excellent", "amazing", "fast", "happy"}
-        negative_keywords = {"bad", "poor", "broken", "fake", "hate", "slow", "damaged"}
+        sentiment_score, sentiment, _, _ = TextAnalysisService._score_text(text)
         toxic_keywords = {"idiot", "stupid", "hate"}
         spam_keywords = {"buy now", "discount", "promo"}
-
-        pos_hits = sum(1 for word in positive_keywords if word in text)
-        neg_hits = sum(1 for word in negative_keywords if word in text)
-
-        sentiment_score = max(0.0, min(1.0, 0.5 + ((pos_hits - neg_hits) * 0.12)))
-        sentiment = "positive" if sentiment_score >= 0.65 else "negative" if sentiment_score <= 0.35 else "mixed"
 
         return ReviewTextAnalysis(
             review_id=review.id,

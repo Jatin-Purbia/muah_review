@@ -6,9 +6,7 @@
         {{ review.isActive ? '✓ Published' : '⧗ Draft' }}
       </span>
 
-      @if (review.pipelineScore !== undefined) {
-        <span class="score-badge">Score: {{ review.pipelineScore }}</span>
-      }
+      <span class="score-badge">Pipeline: {{ pipelineDisplay }}</span>
     </div>
 
     <div class="header-right">

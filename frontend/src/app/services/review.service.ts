@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
-import { delay } from 'rxjs/operators';
+import { catchError, delay, map, switchMap } from 'rxjs/operators';
+import { forkJoin, throwError } from 'rxjs';
 import {
   Review,
   CreateSiteReviewDto,
@@ -10,6 +12,34 @@ import {
   RatingBreakdown,
   RATING_CONFIG,
 } from '../models/review.model';
+import { environment } from '../../environments/environment';
+
+const BACKEND_URL = environment.apiUrl;
+
+interface BackendReview {
+  id: string;
+  user_id: string;
+  seller_id: string;
+  product_id: string;
+  title: string;
+  description: string;
+  star_rating: number;
+  status: string;
+  is_published: boolean;
+  created_at: string;
+  updated_at: string;
+  media_ids: string[];
+}
+
+interface BackendReviewDetail extends BackendReview {
+  text_analysis?: {
+    overall_score?: number;
+  } | null;
+  fusion_decision?: {
+    final_score?: number;
+    decision?: string;
+  } | null;
+}
 
 @Injectable({ providedIn: 'root' })
 export class ReviewService {
@@ -29,8 +59,6 @@ export class ReviewService {
       sellerId: 'seller-aurora',
       sellerName: 'Aurora Beauty',
       productName: 'Glow Serum',
-      pipelineScore: 91,
-      sentimentScore: 88,
       pipelineStatus: 'approved',
       autoPublishEligible: true,
       media: [
@@ -52,8 +80,6 @@ export class ReviewService {
       sellerId: 'seller-aurora',
       sellerName: 'Aurora Beauty',
       productName: 'Starter Routine Bundle',
-      pipelineScore: 89,
-      sentimentScore: 92,
       pipelineStatus: 'approved',
       autoPublishEligible: true,
     },
@@ -72,8 +98,6 @@ export class ReviewService {
       sellerId: 'seller-threadline',
       sellerName: 'ThreadLine Apparel',
       productName: 'Polo Top',
-      pipelineScore: 86,
-      sentimentScore: 84,
       pipelineStatus: 'approved',
       autoPublishEligible: true,
       media: [
@@ -95,8 +119,6 @@ export class ReviewService {
       sellerId: 'seller-aurora',
       sellerName: 'Aurora Beauty',
       productName: 'Daily Cleanser',
-      pipelineScore: 58,
-      sentimentScore: 46,
       pipelineStatus: 'manual-review',
       autoPublishEligible: false,
     },
@@ -115,8 +137,6 @@ export class ReviewService {
       sellerId: 'seller-aurora',
       sellerName: 'Aurora Beauty',
       productName: 'Skin Tint',
-      pipelineScore: 34,
-      sentimentScore: 22,
       pipelineStatus: 'blocked',
       autoPublishEligible: false,
     },
@@ -135,8 +155,6 @@ export class ReviewService {
       sellerId: 'seller-threadline',
       sellerName: 'ThreadLine Apparel',
       productName: 'Linen Shirt',
-      pipelineScore: 77,
-      sentimentScore: 71,
       pipelineStatus: 'approved',
       autoPublishEligible: true,
     },
@@ -155,8 +173,6 @@ export class ReviewService {
       sellerId: 'seller-threadline',
       sellerName: 'ThreadLine Apparel',
       productName: 'Mobile Storefront',
-      pipelineScore: 41,
-      sentimentScore: 27,
       pipelineStatus: 'manual-review',
       autoPublishEligible: false,
     },
@@ -175,8 +191,6 @@ export class ReviewService {
       sellerId: 'seller-threadline',
       sellerName: 'ThreadLine Apparel',
       productName: 'Summer Dress',
-      pipelineScore: 55,
-      sentimentScore: 49,
       pipelineStatus: 'manual-review',
       autoPublishEligible: false,
       media: [
@@ -185,23 +199,70 @@ export class ReviewService {
     },
   ];
 
+  constructor(private http: HttpClient) {}
+
+  private getMockReviews(): Review[] {
+    return [...this.mockReviews].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  private mapPipelineStatus(status: string | undefined): Review['pipelineStatus'] {
+    if (!status) return 'pending';
+    if (status === 'published' || status === 'approved') return 'approved';
+    if (status === 'pending_manual_review' || status === 'unpublished') return 'manual-review';
+    if (status === 'rejected' || status === 'flagged' || status === 'failed') return 'blocked';
+    return 'pending';
+  }
+
+  private mapBackendReview(detail: BackendReviewDetail): Review {
+    return {
+      id: detail.id,
+      userId: detail.user_id,
+      title: detail.title,
+      description: detail.description,
+      starRating: detail.star_rating,
+      helpfulCount: 0,
+      unHelpfulCount: 0,
+      isActive: detail.is_published,
+      isDeleted: false,
+      createdAt: detail.created_at,
+      updatedAt: detail.updated_at ?? null,
+      sellerId: detail.seller_id,
+      sellerName: detail.seller_id === 'seller-aurora' ? 'Aurora Beauty' : detail.seller_id,
+      productName: detail.product_id === 'product-recent' ? 'Recently Added Product' : detail.product_id,
+      pipelineScore: detail.fusion_decision?.final_score !== undefined ? Math.round(detail.fusion_decision.final_score * 100) : undefined,
+      sentimentScore: detail.text_analysis?.overall_score !== undefined ? Math.round(detail.text_analysis.overall_score * 100) : undefined,
+      pipelineStatus: this.mapPipelineStatus(detail.fusion_decision?.decision ?? detail.status),
+      autoPublishEligible: (detail.fusion_decision?.decision ?? detail.status) === 'published',
+    };
+  }
+
+  private getReviewDetail(id: string): Observable<Review> {
+    return this.http.get<BackendReviewDetail>(`${BACKEND_URL}/reviews/${id}`).pipe(
+      map((detail) => this.mapBackendReview(detail))
+    );
+  }
+
   search(filter: SiteReviewFilter = {}): Observable<SiteReviewSearchResult> {
-    const payload: SiteReviewFilter = { currentPage: 1, numberPerPage: 500, ...filter };
-    let reviews = [...this.mockReviews];
+    return this.getReviews().pipe(
+      map((reviews) => {
+        const payload: SiteReviewFilter = { currentPage: 1, numberPerPage: 500, ...filter };
+        let filtered = [...reviews];
 
-    if (payload.isActive !== null && payload.isActive !== undefined) {
-      reviews = reviews.filter((review) => review.isActive === payload.isActive);
-    }
+        if (payload.isActive !== null && payload.isActive !== undefined) {
+          filtered = filtered.filter((review) => review.isActive === payload.isActive);
+        }
 
-    return of({
-      data: reviews,
-      pager: {
-        totalItems: reviews.length,
-        currentPage: 1,
-        numberPerPage: 500,
-        totalPages: 1,
-      }
-    }).pipe(delay(180));
+        return {
+          data: filtered,
+          pager: {
+            totalItems: filtered.length,
+            currentPage: 1,
+            numberPerPage: 500,
+            totalPages: 1,
+          }
+        };
+      })
+    );
   }
 
   fetchAll(filter: Omit<SiteReviewFilter, 'isActive'> = {}): Observable<SiteReviewSearchResult> {
@@ -217,11 +278,17 @@ export class ReviewService {
   }
 
   getReviews(): Observable<Review[]> {
-    return of([...this.mockReviews]).pipe(delay(180));
+    return this.http.get<BackendReview[]>(`${BACKEND_URL}/admin/reviews`).pipe(
+      switchMap((reviews) => reviews.length ? forkJoin(reviews.map((review) => this.getReviewDetail(review.id))) : of([])),
+      map((reviews) => [...reviews].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())),
+      catchError(() => of(this.getMockReviews()))
+    );
   }
 
   getById(id: string): Observable<Review> {
-    return of(this.mockReviews.find((review) => review.id === id)!).pipe(delay(150));
+    return this.getReviewDetail(id).pipe(
+      catchError(() => of(this.mockReviews.find((review) => review.id === id)!).pipe(delay(150)))
+    );
   }
 
   getStatistics(): Observable<SiteCategoryReview[]> {
@@ -253,30 +320,48 @@ export class ReviewService {
   }
 
   create(dto: CreateSiteReviewDto): Observable<Review> {
-    const newReview: Review = {
-      id: Math.random().toString(36).slice(2, 11),
-      userId: `user-${Math.random().toString(36).slice(2, 7)}`,
+    return this.http.post<{ review: BackendReview }>(`${BACKEND_URL}/reviews`, {
+      user_id: `user-${Math.random().toString(36).slice(2, 7)}`,
+      seller_id: 'seller-aurora',
+      product_id: 'product-recent',
       title: dto.title,
       description: dto.description,
-      starRating: dto.starRating,
-      media: dto.media?.map((m, i) => ({ id: `media-${i}`, ...m })),
-      helpfulCount: 0,
-      unHelpfulCount: 0,
-      isActive: false,
-      isDeleted: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: null,
-      sellerId: 'seller-aurora',
-      sellerName: 'Aurora Beauty',
-      productName: 'Recently Added Product',
-      pipelineScore: dto.starRating >= 4 ? 84 : dto.starRating === 3 ? 58 : 33,
-      sentimentScore: dto.starRating >= 4 ? 80 : dto.starRating === 3 ? 50 : 28,
-      pipelineStatus: dto.starRating >= 4 ? 'approved' : dto.starRating === 3 ? 'manual-review' : 'blocked',
-      autoPublishEligible: dto.starRating >= 4,
-    };
-
-    this.mockReviews = [newReview, ...this.mockReviews];
-    return of(newReview).pipe(delay(180));
+      star_rating: dto.starRating,
+      media: (dto.media ?? []).map((item) => ({
+        media_type: item.type,
+        media_url: item.url,
+      })),
+    }).pipe(
+      switchMap((response) =>
+        this.http.post(`${BACKEND_URL}/internal/process-review/${response.review.id}`, {}).pipe(
+          switchMap(() => this.getReviewDetail(response.review.id)),
+          catchError(() => this.getReviewDetail(response.review.id))
+        )
+      ),
+      catchError(() => {
+        const newReview: Review = {
+          id: Math.random().toString(36).slice(2, 11),
+          userId: `user-${Math.random().toString(36).slice(2, 7)}`,
+          title: dto.title,
+          description: dto.description,
+          starRating: dto.starRating,
+          media: dto.media?.map((m, i) => ({ id: `media-${i}`, ...m })),
+          helpfulCount: 0,
+          unHelpfulCount: 0,
+          isActive: false,
+          isDeleted: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: null,
+          sellerId: 'seller-aurora',
+          sellerName: 'Aurora Beauty',
+          productName: 'Recently Added Product',
+          pipelineStatus: 'pending',
+          autoPublishEligible: false,
+        };
+        this.mockReviews = [newReview, ...this.mockReviews];
+        return of(newReview).pipe(delay(180));
+      })
+    );
   }
 
   createReview(dto: CreateSiteReviewDto): Observable<Review> {
@@ -284,21 +369,37 @@ export class ReviewService {
   }
 
   publish(id: string): Observable<{ id: string; isActive: boolean }> {
-    const review = this.mockReviews.find((item) => item.id === id);
-    if (review) {
-      review.isActive = true;
-      review.pipelineStatus = 'approved';
-    }
-    return of({ id, isActive: true }).pipe(delay(120));
+    return this.http.post<BackendReview>(`${BACKEND_URL}/admin/reviews/${id}/publish`, {
+      actor: 'frontend-admin',
+      reason: 'Published from dashboard',
+    }).pipe(
+      map((review) => ({ id: review.id, isActive: review.is_published })),
+      catchError(() => {
+        const review = this.mockReviews.find((item) => item.id === id);
+        if (review) {
+          review.isActive = true;
+          review.pipelineStatus = 'approved';
+        }
+        return of({ id, isActive: true }).pipe(delay(120));
+      })
+    );
   }
 
   unpublish(id: string): Observable<{ id: string; isActive: boolean }> {
-    const review = this.mockReviews.find((item) => item.id === id);
-    if (review) {
-      review.isActive = false;
-      review.pipelineStatus = 'manual-review';
-    }
-    return of({ id, isActive: false }).pipe(delay(120));
+    return this.http.post<BackendReview>(`${BACKEND_URL}/admin/reviews/${id}/unpublish`, {
+      actor: 'frontend-admin',
+      reason: 'Moved back to moderation from dashboard',
+    }).pipe(
+      map((review) => ({ id: review.id, isActive: review.is_published })),
+      catchError(() => {
+        const review = this.mockReviews.find((item) => item.id === id);
+        if (review) {
+          review.isActive = false;
+          review.pipelineStatus = 'manual-review';
+        }
+        return of({ id, isActive: false }).pipe(delay(120));
+      })
+    );
   }
 
   setPublishStatus(id: string, isActive: boolean): Observable<{ id: string; isActive: boolean }> {
@@ -310,30 +411,15 @@ export class ReviewService {
   }
 
   bulkPublish(ids: string[]): Observable<{ id: string; isActive: boolean }[]> {
-    return of(ids.map((id) => {
-      const review = this.mockReviews.find((item) => item.id === id);
-      if (review) {
-        review.isActive = true;
-        review.pipelineStatus = 'approved';
-      }
-      return { id, isActive: true };
-    })).pipe(delay(200));
+    return ids.length ? forkJoin(ids.map((id) => this.publish(id))) : of([]);
   }
 
   bulkUnpublish(ids: string[]): Observable<{ id: string; isActive: boolean }[]> {
-    return of(ids.map((id) => {
-      const review = this.mockReviews.find((item) => item.id === id);
-      if (review) {
-        review.isActive = false;
-        review.pipelineStatus = 'manual-review';
-      }
-      return { id, isActive: false };
-    })).pipe(delay(200));
+    return ids.length ? forkJoin(ids.map((id) => this.unpublish(id))) : of([]);
   }
 
   delete(id: string): Observable<unknown> {
-    this.mockReviews = this.mockReviews.filter((review) => review.id !== id);
-    return of({}).pipe(delay(120));
+    return throwError(() => new Error('Delete is not supported by the backend yet.'));
   }
 
   deleteReview(id: string): Observable<unknown> {
@@ -341,19 +427,14 @@ export class ReviewService {
   }
 
   bulkDelete(ids: string[]): Observable<unknown[]> {
-    this.mockReviews = this.mockReviews.filter((review) => !ids.includes(review.id));
-    return of(ids.map(() => ({}))).pipe(delay(200));
+    return throwError(() => new Error('Bulk delete is not supported by the backend yet.'));
   }
 
   markHelpful(reviewId: string): Observable<unknown> {
-    const review = this.mockReviews.find((item) => item.id === reviewId);
-    if (review) review.helpfulCount++;
     return of({}).pipe(delay(80));
   }
 
   markUnhelpful(reviewId: string): Observable<unknown> {
-    const review = this.mockReviews.find((item) => item.id === reviewId);
-    if (review) review.unHelpfulCount++;
     return of({}).pipe(delay(80));
   }
 

@@ -365,15 +365,7 @@ export class DashboardComponent implements OnInit {
   onTogglePublish(event: { review: Review; published: boolean }): void {
     this.reviewService.togglePublish(event.review.id, event.published).subscribe({
       next: (response) => {
-        const index = this.reviews.findIndex((review) => review.id === event.review.id);
-        if (index !== -1) {
-          this.reviews[index] = {
-            ...this.reviews[index],
-            isActive: response.isActive,
-            pipelineStatus: response.isActive ? 'approved' : 'manual-review',
-          };
-        }
-        this.applyFilters();
+        this.loadReviews();
         this.successMessage = response.isActive ? 'Review published to website.' : 'Review moved back to moderation.';
         setTimeout(() => (this.successMessage = ''), 3000);
       },
@@ -408,15 +400,9 @@ export class DashboardComponent implements OnInit {
     const ids = this.selectedIdsArray;
     this.bulkLoading = true;
     this.reviewService.bulkPublish(ids).subscribe({
-      next: (results) => {
-        results.forEach((result) => {
-          const index = this.reviews.findIndex((review) => review.id === result.id);
-          if (index !== -1) {
-            this.reviews[index] = { ...this.reviews[index], isActive: true, pipelineStatus: 'approved' };
-          }
-        });
+      next: () => {
         this.selectedIds.clear();
-        this.applyFilters();
+        this.loadReviews();
         this.bulkLoading = false;
         this.successMessage = `${ids.length} review(s) published.`;
         setTimeout(() => (this.successMessage = ''), 3000);
@@ -433,15 +419,9 @@ export class DashboardComponent implements OnInit {
     const ids = this.selectedIdsArray;
     this.bulkLoading = true;
     this.reviewService.bulkUnpublish(ids).subscribe({
-      next: (results) => {
-        results.forEach((result) => {
-          const index = this.reviews.findIndex((review) => review.id === result.id);
-          if (index !== -1) {
-            this.reviews[index] = { ...this.reviews[index], isActive: false, pipelineStatus: 'manual-review' };
-          }
-        });
+      next: () => {
         this.selectedIds.clear();
-        this.applyFilters();
+        this.loadReviews();
         this.bulkLoading = false;
         this.successMessage = `${ids.length} review(s) moved to moderation.`;
         setTimeout(() => (this.successMessage = ''), 3000);

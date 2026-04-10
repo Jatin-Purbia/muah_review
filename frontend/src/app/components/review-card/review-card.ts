@@ -43,6 +43,18 @@ export class ReviewCardComponent {
     return (this.review.description || '').length > 300;
   }
 
+  get pipelineDisplay(): string {
+    return this.review.pipelineScore !== undefined
+      ? `${this.review.pipelineScore}`
+      : this.review.pipelineStatus === 'approved'
+        ? 'Approved'
+        : this.review.pipelineStatus === 'manual-review'
+          ? 'Manual Review'
+          : this.review.pipelineStatus === 'blocked'
+            ? 'Blocked'
+            : 'Pending';
+  }
+
   onToggle(): void {
     this.toggling = true;
     this.confirmPublish = false;
