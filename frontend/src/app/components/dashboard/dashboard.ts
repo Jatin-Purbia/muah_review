@@ -2,10 +2,12 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReviewService } from '../../services/review.service';
+import { AnalyticsService, SellerAnalyticsSummary, SellerTrendPoint, SellerAspectInsight } from '../../services/analytics.service';
 import { Review, CreateSiteReviewDto, PublishFilter, SiteCategoryReview, PipelineStatus } from '../../models/review.model';
 import { ReviewCardComponent } from '../review-card/review-card';
 import { StatsBarComponent } from '../stats-bar/stats-bar';
 import { AddReviewModalComponent } from '../add-review-modal/add-review-modal';
+import { ReviewDetailModalComponent } from '../review-detail-modal/review-detail-modal';
 
 type PortalView = 'super-admin' | 'seller';
 
@@ -29,7 +31,7 @@ interface PipelineMetric {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReviewCardComponent, StatsBarComponent, AddReviewModalComponent],
+  imports: [CommonModule, FormsModule, ReviewCardComponent, StatsBarComponent, AddReviewModalComponent, ReviewDetailModalComponent],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
 })
@@ -49,6 +51,7 @@ export class DashboardComponent implements OnInit {
 
   selectedIds = new Set<string>();
   bulkLoading = false;
+  selectedReviewForDetail: Review | null = null;
 
   activePortal: PortalView = 'super-admin';
   pipelineAutomationEnabled = true;
@@ -92,7 +95,7 @@ export class DashboardComponent implements OnInit {
     return [...groups.entries()].map(([sellerId, sellerReviews]) => {
       const totalReviews = sellerReviews.length;
       const publishedReviews = sellerReviews.filter((review) => review.isActive).length;
-      const averageRating = totalReviews ? sellerReviews.reduce((sum, review) => sum + review.rating, 0) / totalReviews : 0;
+      const averageRating = totalReviews ? sellerReviews.reduce((sum, review) => sum + (review.starRating ?? 0), 0) / totalReviews : 0;
       const positiveShare = totalReviews
         ? Math.round((sellerReviews.filter((review) => (review.sentimentScore ?? 0) >= 70).length / totalReviews) * 100)
         : 0;
@@ -113,7 +116,20 @@ export class DashboardComponent implements OnInit {
   }
 
   get selectedSeller(): SellerSummary | undefined {
-    return this.sellers.find((seller) => seller.id === this.selectedSellerId);
+    const seller = this.sellers.find((seller) => seller.id === this.selectedSellerId);
+    if (seller && this.sellerAnalytics) {
+      return {
+        ...seller,
+        totalReviews: this.sellerAnalytics.total_reviews,
+        publishedReviews: this.sellerAnalytics.published_reviews,
+        averageRating: this.sellerAnalytics.avg_rating,
+        satisfaction: Math.round(this.sellerAnalytics.avg_rating * 20),
+        positiveShare: Math.round(
+          (this.sellerAnalytics.sentiment_split.positive / this.sellerAnalytics.total_reviews) * 100
+        ),
+      };
+    }
+    return seller;
   }
 
   get pipelineMetrics(): PipelineMetric[] {
@@ -137,6 +153,15 @@ export class DashboardComponent implements OnInit {
   }
 
   get sellerMoodBars(): { label: string; value: number; tone: string }[] {
+    if (this.sellerAnalytics) {
+      const total = this.sellerAnalytics.total_reviews || 1;
+      return [
+        { label: 'Happy', value: Math.round((this.sellerAnalytics.sentiment_split.positive / total) * 100), tone: 'good' },
+        { label: 'Mixed', value: Math.round((this.sellerAnalytics.sentiment_split.mixed / total) * 100), tone: 'warn' },
+        { label: 'Unhappy', value: Math.round((this.sellerAnalytics.sentiment_split.negative / total) * 100), tone: 'danger' },
+      ];
+    }
+
     const reviews = this.sellerReviews;
     const total = reviews.length || 1;
 
@@ -148,22 +173,28 @@ export class DashboardComponent implements OnInit {
   }
 
   get sellerCategoryPerformance(): { category: string; rating: number; mentions: number }[] {
-    const categoryMap = new Map<string, Review[]>();
-
-    for (const review of this.sellerReviews) {
-      const list = categoryMap.get(review.reviewCategory) ?? [];
-      list.push(review);
-      categoryMap.set(review.reviewCategory, list);
+    if (this.sellerAspects.length > 0) {
+      return this.sellerAspects.map((aspect) => ({
+        category: aspect.aspect.replace(/_/g, ' ').charAt(0).toUpperCase() + aspect.aspect.slice(1),
+        rating: aspect.positive_mentions > 0 ? 4 : aspect.neutral_mentions > 0 ? 3 : 2,
+        mentions: aspect.positive_mentions + aspect.negative_mentions + aspect.neutral_mentions,
+      }));
     }
 
-    return [...categoryMap.entries()].map(([category, reviews]) => ({
-      category,
-      rating: reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length,
-      mentions: reviews.length,
-    }));
+    return [
+      { category: 'Product Quality', rating: 4.2, mentions: 12 },
+      { category: 'Delivery', rating: 4.5, mentions: 8 },
+      { category: 'Service', rating: 4.1, mentions: 6 },
+    ];
   }
 
   get sellerTrend(): { month: string; score: number }[] {
+    if (this.sellerTrends.length > 0) {
+      return this.sellerTrends.map((trend) => ({
+        month: trend.date_label,
+        score: Math.round(trend.avg_rating * 20),
+      }));
+    }
     return [
       { month: 'Jan', score: 62 },
       { month: 'Feb', score: 68 },
@@ -195,16 +226,39 @@ export class DashboardComponent implements OnInit {
     ];
   }
 
-  constructor(private reviewService: ReviewService) {}
+  sellerAnalytics: SellerAnalyticsSummary | null = null;
+  sellerTrends: SellerTrendPoint[] = [];
+  sellerAspects: SellerAspectInsight[] = [];
+
+  constructor(
+    private reviewService: ReviewService,
+    private analyticsService: AnalyticsService
+  ) {}
 
   ngOnInit(): void {
     this.loadReviews();
     this.loadStatistics();
+    this.loadSellerAnalytics();
   }
 
   loadStatistics(): void {
     this.reviewService.getStatistics().subscribe({
       next: (data) => { this.categoryStats = (data || []).filter((stat) => !!stat.category); },
+      error: () => { /* non-critical */ },
+    });
+  }
+
+  loadSellerAnalytics(): void {
+    this.analyticsService.getSummary(this.selectedSellerId).subscribe({
+      next: (summary) => { this.sellerAnalytics = summary; },
+      error: () => { /* fallback to computed stats */ },
+    });
+    this.analyticsService.getTrends(this.selectedSellerId).subscribe({
+      next: (trends) => { this.sellerTrends = trends; },
+      error: () => { /* non-critical */ },
+    });
+    this.analyticsService.getAspects(this.selectedSellerId).subscribe({
+      next: (aspects) => { this.sellerAspects = aspects; },
       error: () => { /* non-critical */ },
     });
   }
@@ -219,6 +273,7 @@ export class DashboardComponent implements OnInit {
           this.selectedSellerId = this.sellers[0].id;
         }
         this.applyFilters();
+        this.loadSellerAnalytics();
         this.loading = false;
       },
       error: () => {
@@ -240,24 +295,16 @@ export class DashboardComponent implements OnInit {
     if (this.searchQuery.trim()) {
       const query = this.searchQuery.toLowerCase();
       result = result.filter((review) =>
-        (review.heading || '').toLowerCase().includes(query) ||
-        review.comment.toLowerCase().includes(query) ||
-        (review.nickName || '').toLowerCase().includes(query) ||
-        (review.customerName || '').toLowerCase().includes(query) ||
-        (review.creator?.fullName || '').toLowerCase().includes(query) ||
+        (review.title || '').toLowerCase().includes(query) ||
+        (review.description || '').toLowerCase().includes(query) ||
         (review.sellerName || '').toLowerCase().includes(query) ||
         (review.productName || '').toLowerCase().includes(query)
       );
     }
 
-    const activeCategory = this.selectedCategoryKey ?? this.selectedCategory;
-    if (activeCategory) {
-      result = result.filter((review) => review.reviewCategory?.toLowerCase() === activeCategory.toLowerCase());
-    }
-
     if (this.selectedRating > 0) {
       const star = Number(this.selectedRating);
-      result = result.filter((review) => review.rating === star);
+      result = result.filter((review) => review.starRating === star);
     }
 
     this.filteredReviews = result;
@@ -292,18 +339,18 @@ export class DashboardComponent implements OnInit {
   get unpublishedCount(): number { return this.reviews.filter((review) => !review.isActive).length; }
 
   get categories(): string[] {
-    return [...new Set(this.reviews.map((review) => review.reviewCategory).filter(Boolean))];
+    return [...new Set(this.reviews.map((review) => review.productName).filter(Boolean) as string[])];
   }
 
   get averageRating(): number {
     if (!this.reviews.length) return 0;
-    return this.reviews.reduce((sum, review) => sum + review.rating, 0) / this.reviews.length;
+    return this.reviews.reduce((sum, review) => sum + (review.starRating ?? 0), 0) / this.reviews.length;
   }
 
   get ratingDistribution(): { star: number; count: number }[] {
     return [5, 4, 3, 2, 1].map((star) => ({
       star,
-      count: this.reviews.filter((review) => review.rating === star).length,
+      count: this.reviews.filter((review) => review.starRating === star).length,
     }));
   }
 
@@ -335,14 +382,6 @@ export class DashboardComponent implements OnInit {
         setTimeout(() => (this.error = ''), 3000);
       },
     });
-  }
-
-  onLike(review: Review): void {
-    this.reviewService.markHelpful(review.id).subscribe({ error: () => {} });
-  }
-
-  onDislike(review: Review): void {
-    this.reviewService.markUnhelpful(review.id).subscribe({ error: () => {} });
   }
 
   toggleSelectAll(): void {
@@ -481,5 +520,13 @@ export class DashboardComponent implements OnInit {
         : status === 'blocked'
           ? 'danger'
           : 'default';
+  }
+
+  onViewReviewDetails(review: Review): void {
+    this.selectedReviewForDetail = review;
+  }
+
+  onCloseReviewDetail(): void {
+    this.selectedReviewForDetail = null;
   }
 }

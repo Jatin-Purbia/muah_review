@@ -11,28 +11,13 @@
       }
 
       <div class="field">
-        <label>Customer Name *</label>
+        <label>Review Title *</label>
         <input
           type="text"
-          [(ngModel)]="form.customerName"
-          placeholder="Display name shown on review"
-          maxlength="120"
+          [(ngModel)]="form.title"
+          placeholder="Summarize your review in one line..."
+          maxlength="150"
         />
-      </div>
-
-      <div class="field">
-        <label>Category *</label>
-        <input
-          type="text"
-          [(ngModel)]="form.reviewCategory"
-          placeholder="e.g. Product, Service, Delivery"
-          list="cat-list"
-        />
-        <datalist id="cat-list">
-          @for (cat of categories; track cat) {
-            <option [value]="cat"></option>
-          }
-        </datalist>
       </div>
 
       <div class="field">
@@ -42,36 +27,32 @@
             <button
               type="button"
               class="star-btn"
-              [class.active]="star <= (hoverRating || form.rating)"
+              [class.active]="star <= (hoverRating || form.starRating)"
               (mouseenter)="hoverRating = star"
               (mouseleave)="hoverRating = 0"
               (click)="setRating(star)"
             >★</button>
           }
-          @if (form.rating) {
-            <span class="rating-label">{{ form.rating }}/5</span>
+          @if (form.starRating) {
+            <span class="rating-label">{{ form.starRating }}/5</span>
           }
         </div>
       </div>
 
       <div class="field">
-        <label>Comment *</label>
+        <label>Review Description *</label>
         <textarea
-          [(ngModel)]="form.comment"
-          placeholder="Share your experience..."
+          [(ngModel)]="form.description"
+          placeholder="Share your detailed experience..."
           rows="4"
           maxlength="1000"
         ></textarea>
-        <span class="char-count">{{ form.comment.length }}/1000</span>
+        <span class="char-count">{{ form.description.length }}/1000</span>
       </div>
 
-      <div class="field field-toggle">
-        <label class="toggle-label">
-          <input type="checkbox" [(ngModel)]="form.isActive" />
-          <span class="toggle-track"></span>
-          Publish immediately
-        </label>
-        <p class="toggle-hint">Leave unchecked to save as draft for review.</p>
+      <div class="field">
+        <label>Media (Optional)</label>
+        <p class="field-hint">You can add images or videos to support your review</p>
       </div>
     </div>
 

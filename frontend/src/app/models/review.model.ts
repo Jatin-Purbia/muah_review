@@ -17,18 +17,22 @@ export interface ReviewSegmentInsight {
   score: number;
 }
 
+export interface ReviewMedia {
+  id: string;
+  type: 'image' | 'video';
+  url: string;
+  thumbnail?: string;
+}
+
 export interface Review {
   id: string;
   userId: string;
-  heading?: string;
-  comment: string;
-  reviewCategory: string;
-  rating: number;
-  nickName: string;
-  customerName?: string;
+  title: string;
+  description: string;
+  starRating: number;
+  media?: ReviewMedia[];
   helpfulCount: number;
   unHelpfulCount: number;
-  creator: ReviewCreator | null;
   isActive: boolean;
   isDeleted: boolean;
   createdAt: string;
@@ -41,20 +45,29 @@ export interface Review {
   pipelineStatus?: PipelineStatus;
   autoPublishEligible?: boolean;
   segments?: ReviewSegmentInsight[];
+  // Legacy fields for backward compatibility
+  heading?: string;
+  comment?: string;
+  reviewCategory?: string;
+  rating?: number;
+  nickName?: string;
+  customerName?: string;
+  creator?: ReviewCreator | null;
 }
 
 export interface ReviewCreate {
-  heading: string;
-  comment: string;
-  reviewCategory: string;
-  rating: number;
+  title: string;
+  description: string;
+  starRating: number;
+  media?: { type: 'image' | 'video'; url: string }[];
 }
 
 export interface ReviewUpdate {
   id: string;
-  comment: string;
-  reviewCategory: string;
-  rating: number;
+  title: string;
+  description: string;
+  starRating: number;
+  media?: { type: 'image' | 'video'; url: string }[];
 }
 
 // Search and filter
@@ -82,11 +95,10 @@ export interface SiteReviewSearchResult {
 }
 
 export interface CreateSiteReviewDto {
-  reviewCategory: string;
-  customerName: string;
-  rating: number;
-  comment: string;
-  isActive: boolean;
+  title: string;
+  description: string;
+  starRating: number;
+  media?: { type: 'image' | 'video'; url: string }[];
 }
 
 export interface SiteCategoryReview {

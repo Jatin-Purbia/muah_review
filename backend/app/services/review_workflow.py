@@ -45,7 +45,8 @@ class ReviewWorkflowService:
             user_id=payload.user_id,
             seller_id=payload.seller_id,
             product_id=payload.product_id,
-            text=payload.text,
+            title=payload.title,
+            description=payload.description,
             star_rating=payload.star_rating,
             status=ReviewStatus.QUEUED,
         )

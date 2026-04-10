@@ -11,16 +11,14 @@ import { CreateSiteReviewDto } from '../../models/review.model';
   styleUrl: './add-review-modal.scss',
 })
 export class AddReviewModalComponent {
-  @Input() categories: string[] = [];
   @Output() submitted = new EventEmitter<CreateSiteReviewDto>();
   @Output() cancelled = new EventEmitter<void>();
 
   form: CreateSiteReviewDto = {
-    customerName: '',
-    comment: '',
-    reviewCategory: '',
-    rating: 0,
-    isActive: false,
+    title: '',
+    description: '',
+    starRating: 0,
+    media: [],
   };
 
   submitting = false;
@@ -29,16 +27,15 @@ export class AddReviewModalComponent {
 
   get isValid(): boolean {
     return (
-      this.form.customerName.trim().length > 0 &&
-      this.form.comment.trim().length > 0 &&
-      this.form.reviewCategory.trim().length > 0 &&
-      this.form.rating >= 1 &&
-      this.form.rating <= 5
+      this.form.title.trim().length > 0 &&
+      this.form.description.trim().length > 0 &&
+      this.form.starRating >= 1 &&
+      this.form.starRating <= 5
     );
   }
 
   setRating(star: number): void {
-    this.form.rating = star;
+    this.form.starRating = star;
   }
 
   submit(): void {

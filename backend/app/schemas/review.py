@@ -17,7 +17,8 @@ class ReviewCreateRequest(BaseModel):
     user_id: str
     seller_id: str
     product_id: str
-    text: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    description: str = Field(min_length=1)
     star_rating: int = Field(ge=1, le=5)
     media: list[ReviewMediaIn] = Field(default_factory=list)
 
@@ -27,7 +28,8 @@ class ReviewResponse(BaseModel):
     user_id: str
     seller_id: str
     product_id: str
-    text: str
+    title: str
+    description: str
     star_rating: int
     status: ReviewStatus
     is_published: bool
@@ -42,3 +44,6 @@ class ReviewDetailResponse(ReviewResponse):
     video_analysis: list[dict] = Field(default_factory=list)
     fusion_decision: dict | None = None
     moderation_logs: list[dict] = Field(default_factory=list)
+    pipelineScore: float | None = None
+    sentimentScore: float | None = None
+    pipelineStatus: str | None = None

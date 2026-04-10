@@ -29,7 +29,8 @@ class Review(BaseModel):
     user_id: str
     seller_id: str
     product_id: str
-    text: str
+    title: str
+    description: str
     star_rating: int
     status: ReviewStatus = ReviewStatus.SUBMITTED
     is_published: bool = False

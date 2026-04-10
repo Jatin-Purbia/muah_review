@@ -31,13 +31,6 @@
 
   <main class="main">
     <section class="hero-panel">
-      <div class="hero-copy">
-        <span class="hero-eyebrow">Moderation workflow</span>
-        <h2>Published seller reviews enter a scoring pipeline before the main website sees them.</h2>
-        <p>
-          Segment analysis scores each review by delivery, service, product quality, complaints, and website experience. The super admin can keep automation on, tune the threshold, or override decisions manually.
-        </p>
-      </div>
 
       <div class="portal-switch">
         <button class="portal-btn" [class.active]="activePortal === 'super-admin'" (click)="setPortal('super-admin')">
@@ -275,9 +268,8 @@
                   [selected]="isSelected(review.id)"
                   (selectionChange)="toggleSelectOne(review.id)"
                   (togglePublish)="onTogglePublish($event)"
-                  (liked)="onLike($event)"
-                  (disliked)="onDislike($event)"
                   (deleted)="onDelete($event)"
+                  (viewDetails)="onViewReviewDetails($event)"
                 />
               }
             </div>
@@ -432,9 +424,8 @@
                 [review]="review"
                 [selected]="false"
                 (togglePublish)="onTogglePublish($event)"
-                (liked)="onLike($event)"
-                (disliked)="onDislike($event)"
                 (deleted)="onDelete($event)"
+                (viewDetails)="onViewReviewDetails($event)"
               />
             }
           </div>
@@ -445,9 +436,15 @@
 
   @if (showModal) {
     <app-add-review-modal
-      [categories]="categories"
       (submitted)="onReviewSubmitted($event)"
       (cancelled)="showModal = false"
+    />
+  }
+
+  @if (selectedReviewForDetail) {
+    <app-review-detail-modal
+      [review]="selectedReviewForDetail"
+      (closed)="onCloseReviewDetail()"
     />
   }
 </div>

@@ -13,83 +13,39 @@ export class ReviewCardComponent {
   @Input() review!: Review;
   @Input() selected = false;
   @Output() togglePublish = new EventEmitter<{ review: Review; published: boolean }>();
-  @Output() liked = new EventEmitter<Review>();
-  @Output() disliked = new EventEmitter<Review>();
   @Output() deleted = new EventEmitter<Review>();
   @Output() selectionChange = new EventEmitter<boolean>();
+  @Output() viewDetails = new EventEmitter<Review>();
 
   toggling = false;
-  liking = false;
-  disliking = false;
   expanded = false;
   confirmDelete = false;
 
-  localHelpful: number | null = null;
-  localUnhelpful: number | null = null;
-
-  get helpfulCount(): number {
-    return this.localHelpful ?? this.review.helpfulCount;
-  }
-
-  get unhelpfulCount(): number {
-    return this.localUnhelpful ?? this.review.unHelpfulCount;
-  }
-
   get stars(): string[] {
-    return Array(5).fill('').map((_, index) => (index < this.review.rating ? '★' : '☆'));
+    const rating = this.review.starRating ?? 0;
+    return Array(5).fill('').map((_, index) => (index < rating ? '★' : '☆'));
   }
 
   get displayName(): string {
-    return this.review.creator?.fullName || this.review.nickName || this.review.customerName || 'Anonymous';
+    return 'Customer';
   }
 
   get initials(): string {
-    return this.displayName
-      .split(' ')
-      .map((name) => name[0] || '')
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+    return 'C';
   }
 
   get categoryColor(): string {
-    const map: Record<string, string> = {
-      product: '#f97316',
-      products: '#f97316',
-      service: '#0ea5e9',
-      delivery: '#14b8a6',
-      quality: '#8b5cf6',
-      support: '#ec4899',
-      general: '#64748b',
-    };
-
-    return map[(this.review.reviewCategory || '').toLowerCase()] || '#ea580c';
+    return '#3b82f6';
   }
 
   get commentNeedsExpansion(): boolean {
-    return (this.review.comment || '').length > 200;
+    return (this.review.description || '').length > 300;
   }
 
   onToggle(): void {
     this.toggling = true;
     this.togglePublish.emit({ review: this.review, published: !this.review.isActive });
     setTimeout(() => (this.toggling = false), 800);
-  }
-
-  onLike(): void {
-    if (this.liking || this.disliking) return;
-    this.liking = true;
-    this.localHelpful = this.helpfulCount + 1;
-    this.liked.emit(this.review);
-    setTimeout(() => (this.liking = false), 800);
-  }
-
-  onDislike(): void {
-    if (this.liking || this.disliking) return;
-    this.disliking = true;
-    this.localUnhelpful = this.unhelpfulCount + 1;
-    this.disliked.emit(this.review);
-    setTimeout(() => (this.disliking = false), 800);
   }
 
   toggleExpand(): void {
@@ -99,5 +55,14 @@ export class ReviewCardComponent {
   onDelete(): void {
     this.deleted.emit(this.review);
     this.confirmDelete = false;
+  }
+
+  onCardClick(event: MouseEvent): void {
+    // Don't open details if clicking action buttons
+    const target = event.target as HTMLElement;
+    if (target.closest('.menu-btn-group') || target.closest('.vote-btn')) {
+      return;
+    }
+    this.viewDetails.emit(this.review);
   }
 }

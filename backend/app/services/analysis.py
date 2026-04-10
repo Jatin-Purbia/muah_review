@@ -11,7 +11,8 @@ class TextAnalysisService:
     SPAM_TERMS = {"buy now", "discount", "promo"}
 
     def analyze(self, review: Review) -> ReviewTextAnalysis:
-        text = review.text.lower()
+        # Analyze title + description
+        text = (review.title + " " + review.description).lower()
         positive_hits = sum(1 for word in self.POSITIVE_TERMS if word in text)
         negative_hits = sum(1 for word in self.NEGATIVE_TERMS if word in text)
         toxicity_hits = sum(1 for word in self.TOXIC_TERMS if word in text)
