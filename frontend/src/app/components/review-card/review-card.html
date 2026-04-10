@@ -68,17 +68,6 @@
       }
     </div>
 
-    @if (review.media?.length) {
-      <div class="media-preview">
-        @for (m of review.media; track m.id) {
-          @if (m.type === 'image') {
-            <img [src]="m.url" [alt]="review.title" class="media-thumb" />
-          } @else if (m.type === 'video') {
-            <div class="media-thumb video">▶ Video</div>
-          }
-        }
-      </div>
-    }
   </div>
 
 </div>

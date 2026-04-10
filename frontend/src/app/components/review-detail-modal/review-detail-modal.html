@@ -40,23 +40,6 @@
         <p>{{ review.description }}</p>
       </div>
 
-      @if (review.media?.length) {
-        <div class="media-section">
-          <h4>Attached Media</h4>
-          <div class="media-gallery">
-            @for (m of review.media; track m.id) {
-              @if (m.type === 'image') {
-                <img [src]="m.url" [alt]="review.title" class="media-item" />
-              } @else if (m.type === 'video') {
-                <div class="media-item video">
-                  <div class="video-overlay">▶ Video</div>
-                </div>
-              }
-            }
-          </div>
-        </div>
-      }
-
       @if (review.pipelineScore !== undefined) {
         <div class="stats-section">
           <div class="stat">

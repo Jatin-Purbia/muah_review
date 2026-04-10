@@ -3,7 +3,7 @@ from functools import lru_cache
 from app.core.config import get_settings
 from app.models.domain import ModerationConfig
 from app.repositories.memory import InMemoryRepository
-from app.services.analysis import ImageAnalysisService, MediaScoringService, RatingAnalysisService, TextAnalysisService, VideoAnalysisService
+from app.services.analysis import OllamaTextAnalysisService, RatingAnalysisService
 from app.services.analytics import SellerAnalyticsService
 from app.services.audit import AuditLogService
 from app.services.fusion import FusionModerationService
@@ -31,15 +31,16 @@ def get_review_workflow_service() -> ReviewWorkflowService:
     repo = get_repo()
     config_service = ModerationConfigService(repo)
     audit_service = AuditLogService(repo)
+    settings = get_settings()
     return ReviewWorkflowService(
         repo=repo,
         config_service=config_service,
         audit_service=audit_service,
-        text_service=TextAnalysisService(),
+        text_service=OllamaTextAnalysisService(
+            model=settings.ollama_model,
+            ollama_host=settings.ollama_host
+        ),
         rating_service=RatingAnalysisService(),
-        image_service=ImageAnalysisService(),
-        video_service=VideoAnalysisService(),
-        media_scoring_service=MediaScoringService(),
         fusion_service=FusionModerationService(),
     )
 

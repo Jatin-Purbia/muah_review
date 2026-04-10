@@ -6,11 +6,8 @@ from app.repositories.memory import InMemoryRepository
 from app.schemas.admin import ManualModerationRequest
 from app.schemas.review import ReviewCreateRequest
 from app.services.analysis import (
-    ImageAnalysisService,
-    MediaScoringService,
     RatingAnalysisService,
     TextAnalysisService,
-    VideoAnalysisService,
 )
 from app.services.audit import AuditLogService
 from app.services.fusion import FusionModerationService
@@ -25,9 +22,6 @@ class ReviewWorkflowService:
         audit_service: AuditLogService,
         text_service: TextAnalysisService,
         rating_service: RatingAnalysisService,
-        image_service: ImageAnalysisService,
-        video_service: VideoAnalysisService,
-        media_scoring_service: MediaScoringService,
         fusion_service: FusionModerationService,
     ) -> None:
         self.repo = repo
@@ -35,9 +29,6 @@ class ReviewWorkflowService:
         self.audit_service = audit_service
         self.text_service = text_service
         self.rating_service = rating_service
-        self.image_service = image_service
-        self.video_service = video_service
-        self.media_scoring_service = media_scoring_service
         self.fusion_service = fusion_service
 
     def submit_review(self, payload: ReviewCreateRequest, background_tasks: BackgroundTasks) -> Review:
@@ -97,25 +88,11 @@ class ReviewWorkflowService:
         text_analysis = self.text_service.analyze(review)
         self.repo.save_text_analysis(text_analysis)
 
+        # Media is stored but not analyzed for content/relevance
+        # Media score is neutral - just indicates media presence
         media_items = self.repo.get_review_media(review_id)
-        image_analyses = []
-        video_analyses = []
-        image_findings: list[dict] = []
-        video_findings: list[dict] = []
+        media_score = 0.6 if media_items else 0.5
 
-        for media in media_items:
-            if media.media_type == MediaType.IMAGE:
-                image_analysis = self.image_service.analyze(media)
-                self.repo.save_image_analysis(image_analysis)
-                image_analyses.append(image_analysis)
-                image_findings.extend(image_analysis.findings_json)
-            elif media.media_type == MediaType.VIDEO:
-                video_analysis = self.video_service.analyze(media)
-                self.repo.save_video_analysis(video_analysis)
-                video_analyses.append(video_analysis)
-                video_findings.extend(video_analysis.keyframe_findings_json)
-
-        media_score = self.media_scoring_service.score(image_analyses, video_analyses)
         rating_signal = self.rating_service.detect_mismatch(review.star_rating, text_analysis.overall_score, media_score)
         config = self.config_service.get()
         decision = self.fusion_service.decide(
@@ -124,8 +101,8 @@ class ReviewWorkflowService:
             text_analysis=text_analysis,
             rating_signal=rating_signal,
             media_score=media_score,
-            image_findings=image_findings,
-            video_findings=video_findings,
+            image_findings=[],
+            video_findings=[],
         )
         self.repo.save_fusion_decision(decision)
 

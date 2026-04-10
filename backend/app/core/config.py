@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     moderation_toxicity_threshold: float = 0.8
     moderation_spam_threshold: float = 0.85
 
+    ollama_host: str = "http://localhost:11434"
+    ollama_model: str = "qwen2:1.5b"
+
     model_config = SettingsConfigDict(env_file=".env", env_prefix="REVIEW_", extra="ignore")
 
     @field_validator("cors_origins", mode="before")
