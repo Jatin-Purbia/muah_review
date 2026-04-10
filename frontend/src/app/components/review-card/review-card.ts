@@ -20,6 +20,7 @@ export class ReviewCardComponent {
   toggling = false;
   expanded = false;
   confirmDelete = false;
+  confirmPublish = false;
 
   get stars(): string[] {
     const rating = this.review.starRating ?? 0;
@@ -44,6 +45,7 @@ export class ReviewCardComponent {
 
   onToggle(): void {
     this.toggling = true;
+    this.confirmPublish = false;
     this.togglePublish.emit({ review: this.review, published: !this.review.isActive });
     setTimeout(() => (this.toggling = false), 800);
   }

@@ -1,73 +1,102 @@
-<div class="card" [class.unpublished]="!review.isActive" [class.selected]="selected" (click)="onCardClick($event)" [style.cursor]="'pointer'">
-  <div class="card-top-bar">
-    <div class="left-section">
-      <label class="select-check" title="Select review">
-        <input type="checkbox" [checked]="selected" (change)="selectionChange.emit(!selected)" />
-        <span class="check-indicator"></span>
-      </label>
-
-      <span class="status-badge" [class.published]="review.isActive" [class.unpublished-badge]="!review.isActive">
-        {{ review.isActive ? 'Published' : 'Draft' }}
+<div class="card" [class.unpublished]="!review.isActive" [class.published]="review.isActive" (click)="onCardClick($event)">
+  <!-- Header with metadata -->
+  <div class="card-header">
+    <div class="header-left">
+      <span class="status-badge" [class.published]="review.isActive" [class.draft]="!review.isActive">
+        {{ review.isActive ? '✓ Published' : '⧗ Draft' }}
       </span>
+
+      @if (review.pipelineScore !== undefined) {
+        <span class="score-badge">Score: {{ review.pipelineScore }}</span>
+      }
     </div>
 
-    <div class="right-section">
-      @if (review.pipelineStatus && review.pipelineStatus !== 'approved') {
-        <span class="pipeline-badge flagged">⚠ Pipeline {{ review.pipelineScore ?? 0 }}</span>
+    <div class="header-right">
+      @if (review.createdAt) {
+        <span class="date-text">{{ review.createdAt | date:'MMM d, yyyy' }}</span>
       }
-
-      <div class="menu-btn-group">
-        @if (!confirmDelete) {
-          <button
-            class="menu-btn"
-            [class.btn-unpublish]="review.isActive"
-            [class.btn-publish]="!review.isActive"
-            [disabled]="toggling"
-            (click)="onToggle()"
-            [title]="review.isActive ? 'Move to draft' : 'Publish'"
-          >
-            ⇅
-          </button>
-          <button class="menu-btn delete" title="Delete review" (click)="confirmDelete = true">⋯</button>
-        } @else {
-          <button class="menu-btn confirm-del" (click)="onDelete()">✓</button>
-          <button class="menu-btn cancel-del" (click)="confirmDelete = false">✕</button>
-        }
-      </div>
     </div>
   </div>
 
-  <div class="card-content">
-    <div class="review-info">
-      @if (review.sellerName) {
-        <span class="seller-chip">{{ review.sellerName }}</span>
-      }
-      @if (review.productName) {
-        <span class="product-chip">{{ review.productName }}</span>
-      }
-      @if (review.createdAt) {
-        <span class="date-chip">{{ review.createdAt | date:'MMM d' }}</span>
-      }
-    </div>
+  <!-- Metadata chips -->
+  <div class="metadata-section">
+    @if (review.sellerName) {
+      <span class="chip seller">{{ review.sellerName }}</span>
+    }
+    @if (review.productName) {
+      <span class="chip product">{{ review.productName }}</span>
+    }
+  </div>
 
+  <!-- Rating -->
+  <div class="rating-section">
     <div class="stars">
       @for (s of stars; track $index) {
         <span [class.filled]="s === '★'">{{ s }}</span>
       }
-      <span class="rating-num">{{ review.starRating }}/5</span>
     </div>
+    <span class="rating-text">{{ review.starRating }}/5 stars</span>
+  </div>
 
+  <!-- Content -->
+  <div class="content-section">
     <h3 class="title">{{ review.title }}</h3>
 
     <div class="description-wrap">
       <p class="description" [class.expanded]="expanded">{{ review.description }}</p>
       @if (commentNeedsExpansion) {
-        <button class="expand-btn" (click)="toggleExpand()">
+        <button class="expand-btn" (click)="toggleExpand(); $event.stopPropagation()">
           {{ expanded ? '↑ Show less' : '↓ Read more' }}
         </button>
       }
     </div>
-
   </div>
 
+  <!-- Action buttons -->
+  <div class="actions-section">
+    @if (!confirmDelete && !confirmPublish) {
+      <button
+        class="action-btn view-details"
+        (click)="viewDetails.emit(review); $event.stopPropagation()"
+        title="View full details"
+      >
+        👁 View Details
+      </button>
+
+      <button
+        class="action-btn"
+        [class.publish]="!review.isActive"
+        [class.unpublish]="review.isActive"
+        [disabled]="toggling"
+        (click)="confirmPublish = true; $event.stopPropagation()"
+        [title]="review.isActive ? 'Move to draft' : 'Publish review'"
+      >
+        {{ review.isActive ? '⬇ Unpublish' : '⬆ Publish' }}
+      </button>
+
+      <button
+        class="action-btn delete"
+        title="Delete review"
+        (click)="confirmDelete = true; $event.stopPropagation()"
+      >
+        🗑 Delete
+      </button>
+    } @else if (confirmPublish) {
+      <div class="confirm-prompt">
+        <span class="prompt-message">{{ review.isActive ? 'Move to draft?' : 'Publish this review?' }}</span>
+        <div class="confirm-actions">
+          <button class="confirm-btn yes" (click)="onToggle(); $event.stopPropagation()">Confirm</button>
+          <button class="confirm-btn no" (click)="confirmPublish = false; $event.stopPropagation()">Cancel</button>
+        </div>
+      </div>
+    } @else if (confirmDelete) {
+      <div class="confirm-prompt danger">
+        <span class="prompt-message">Delete this review permanently?</span>
+        <div class="confirm-actions">
+          <button class="confirm-btn yes danger" (click)="onDelete(); $event.stopPropagation()">Delete</button>
+          <button class="confirm-btn no" (click)="confirmDelete = false; $event.stopPropagation()">Cancel</button>
+        </div>
+      </div>
+    }
+  </div>
 </div>
