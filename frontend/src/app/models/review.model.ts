@@ -95,10 +95,25 @@ export interface SiteReviewSearchResult {
 }
 
 export interface CreateSiteReviewDto {
+  productId: string;
+  sellerId: string;
   title: string;
   description: string;
   starRating: number;
   media?: { type: 'image' | 'video'; url: string }[];
+}
+
+export interface ProductCatalogItem {
+  id: string;
+  name: string;
+  description: string;
+  sellerId: string;
+  sellerName: string;
+  brandId?: string | null;
+  price: number;
+  imageUrl?: string | null;
+  reviewCount: number;
+  reviewAvg: number;
 }
 
 export interface SiteCategoryReview {

@@ -1,9 +1,9 @@
-from app.repositories.memory import InMemoryRepository
+from app.repositories.base import ReviewRepository
 from app.schemas.admin import ModerationConfigPatchRequest
 
 
 class ModerationConfigService:
-    def __init__(self, repo: InMemoryRepository) -> None:
+    def __init__(self, repo: ReviewRepository) -> None:
         self.repo = repo
 
     def get(self):

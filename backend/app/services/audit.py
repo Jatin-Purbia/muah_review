@@ -1,10 +1,10 @@
 from app.models.domain import ModerationLog
 from app.models.enums import ActionType, ReviewStatus
-from app.repositories.memory import InMemoryRepository
+from app.repositories.base import ReviewRepository
 
 
 class AuditLogService:
-    def __init__(self, repo: InMemoryRepository) -> None:
+    def __init__(self, repo: ReviewRepository) -> None:
         self.repo = repo
 
     def log(

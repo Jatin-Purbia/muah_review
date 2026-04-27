@@ -3,7 +3,7 @@
     <div class="modal-header">
       <div class="header-top">
         <h2>Review Details</h2>
-        <button class="close-btn" (click)="onClose()">✕</button>
+        <button class="close-btn" (click)="onClose()">X</button>
       </div>
       <div class="review-meta">
         @if (review.sellerName) {
@@ -22,17 +22,15 @@
       <div class="rating-section">
         <div class="stars">
           @for (s of stars; track $index) {
-            <span [class.filled]="s === '★'">{{ s }}</span>
+            <span [class.filled]="s === '*'">{{ s }}</span>
           }
         </div>
         <span class="rating-value">{{ review.starRating }}/5 stars</span>
       </div>
 
-      @if (review.isActive) {
-        <span class="status-badge published">Published</span>
-      } @else {
-        <span class="status-badge draft">Draft</span>
-      }
+      <span class="status-badge" [class.published]="review.isActive" [class.draft]="!review.isActive">
+        {{ statusLabel }}
+      </span>
 
       <h3 class="review-title">{{ review.title }}</h3>
 

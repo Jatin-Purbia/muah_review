@@ -50,7 +50,7 @@ What is already implemented:
 
 What is still intentionally mocked or simplified:
 
-- Persistence is in-memory, not PostgreSQL yet
+- Persistence defaults to in-memory unless Astra DB is configured
 - Background jobs use FastAPI background tasks, not Celery/Redis yet
 - Multimodal AI analysis uses placeholder heuristics, not real model inference yet
 - Authentication and authorization are not wired yet
@@ -69,6 +69,8 @@ backend/
       domain.py
       enums.py
     repositories/
+      astra.py
+      base.py
       memory.py
     schemas/
       admin.py
@@ -122,7 +124,7 @@ Pydantic request/response models for:
 
 ### `app/repositories`
 
-Abstracts persistence. Right now this uses `InMemoryRepository`, which makes the service easy to run locally while preserving a clean separation from the service layer.
+Abstracts persistence. The service can use `InMemoryRepository` for local-only runs or `AstraRepository` to persist data into the Astra DB `reviews` collection.
 
 ### `app/services`
 
@@ -239,6 +241,7 @@ These values are configurable through the moderation config service.
 
 - `POST /reviews`
 - `GET /reviews/{review_id}`
+- `GET /products`
 
 ### Seller
 
@@ -359,6 +362,9 @@ The backend currently supports:
 - `REVIEW_MODERATION_MANUAL_REVIEW_THRESHOLD`
 - `REVIEW_MODERATION_TOXICITY_THRESHOLD`
 - `REVIEW_MODERATION_SPAM_THRESHOLD`
+- `REVIEW_ASTRA_DB_ENABLED`
+- `REVIEW_ASTRA_DB_ENDPOINT`
+- `REVIEW_ASTRA_DB_TOKEN`
 
 ## Important TODOs
 

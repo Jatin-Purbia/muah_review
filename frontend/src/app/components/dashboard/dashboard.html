@@ -7,7 +7,7 @@
           <h1 class="brand-title">
             <span class="muah">Review </span> <span class="thin">Intelligence Hub</span>
           </h1>
-          <p class="brand-sub">Super admin governance and seller insights for review publishing, moderation, and sentiment analysis.</p>
+          <p class="brand-sub">Moderation and seller performance dashboard.</p>
         </div>
       </div>
 
@@ -24,13 +24,32 @@
           <span class="pill-val">{{ sellers.length }}</span>
           <span class="pill-lbl">Active Sellers</span>
         </div>
-        <button class="btn-primary" (click)="showModal = true">Create Review</button>
       </div>
     </div>
   </header>
 
   <main class="main">
     <section class="hero-panel">
+      <div class="hero-copy">
+        <span class="hero-eyebrow">Overview</span>
+        <h2>Review moderation dashboard</h2>
+        <p>Monitor pipeline health, manage publishing, and review seller performance in one place.</p>
+
+        <div class="hero-highlights">
+          <div class="hero-highlight">
+            <strong>{{ products.length }}</strong>
+            <span>catalog products</span>
+          </div>
+          <div class="hero-highlight">
+            <strong>{{ pendingPipelineReviews.length }}</strong>
+            <span>needs review</span>
+          </div>
+          <div class="hero-highlight">
+            <strong>{{ publishedCount }}</strong>
+            <span>published live</span>
+          </div>
+        </div>
+      </div>
 
       <div class="portal-switch">
         <button class="portal-btn" [class.active]="activePortal === 'super-admin'" (click)="setPortal('super-admin')">
@@ -52,13 +71,19 @@
       </div>
     }
 
+    @if (toastMessage) {
+      <div class="toast" [class.error]="toastType === 'error'" [class.success]="toastType === 'success'">
+        <span class="toast-title">{{ toastType === 'success' ? 'Success' : 'Error' }}</span>
+        <span>{{ toastMessage }}</span>
+      </div>
+    }
+
     @if (activePortal === 'super-admin') {
       <section class="section">
         <div class="section-heading">
           <div>
-            <span class="section-kicker">Dashboard A</span>
-            <h3>Super Admin Review Command Center</h3>
-            <p>Control the moderation pipeline, inspect all seller reviews, and override publication decisions.</p>
+            <span class="section-kicker">Admin</span>
+            <h3>Super Admin Workspace</h3>
           </div>
           <button class="toggle-automation" [class.off]="!pipelineAutomationEnabled" (click)="togglePipelineAutomation()">
             {{ pipelineAutomationEnabled ? 'Automation enabled' : 'Automation disabled' }}
@@ -75,12 +100,60 @@
           }
         </div>
 
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker">Catalog</span>
+            <h3>Products</h3>
+          </div>
+          <div class="catalog-summary">
+            <span>Showing {{ productRangeStart }}-{{ productRangeEnd }}</span>
+            <strong>{{ products.length }} products</strong>
+          </div>
+        </div>
+
+        <div class="product-grid">
+          @for (product of pagedProducts; track product.id) {
+            <article class="product-card">
+              <div class="product-media">
+                @if (product.imageUrl) {
+                  <img [src]="product.imageUrl" [alt]="product.name" loading="lazy" />
+                } @else {
+                  <div class="product-media-fallback">No Image</div>
+                }
+                <span class="product-seller-chip">{{ product.sellerName }}</span>
+              </div>
+
+              <div class="product-body">
+                <div class="product-copy">
+                  <h4 class="product-name">{{ product.name }}</h4>
+                  <p class="product-description">{{ product.description || 'No description available.' }}</p>
+                </div>
+
+                <button class="product-review-btn" (click)="openReviewModal(product)">Write Review</button>
+              </div>
+            </article>
+          }
+        </div>
+
+        <div class="pagination-bar">
+          <button class="pagination-btn" (click)="previousProductPage()" [disabled]="productPage === 1">
+            Previous
+          </button>
+          <div class="pagination-status">
+            <strong>Page {{ productPage }}</strong>
+            <span>of {{ productTotalPages }}</span>
+          </div>
+          <button class="pagination-btn" (click)="nextProductPage()" [disabled]="productPage === productTotalPages">
+            Next
+          </button>
+        </div>
+
         <div class="pipeline-layout">
           <article class="pipeline-card">
             <div class="pipeline-header">
               <div>
-                <span class="section-kicker">Flow</span>
-                <h4>Review publishing pipeline</h4>
+                <span class="section-kicker">Workflow</span>
+                <h4>Moderation pipeline</h4>
               </div>
               <div class="threshold-pill">Score threshold {{ automationThreshold }}</div>
             </div>
@@ -89,29 +162,22 @@
               <div class="pipeline-step">
                 <span class="step-index">1</span>
                 <div>
-                  <strong>Seller publishes review</strong>
-                  <p>Any review marked published enters the moderation pipeline automatically.</p>
+                  <strong>Review intake</strong>
+                  <p>New submissions are queued automatically.</p>
                 </div>
               </div>
               <div class="pipeline-step">
                 <span class="step-index">2</span>
                 <div>
-                  <strong>Segment analysis runs</strong>
-                  <p>Sentiment is scored across delivery, service, product quality, website, returns, and complaints.</p>
+                  <strong>Automated analysis</strong>
+                  <p>Content and sentiment are evaluated.</p>
                 </div>
               </div>
               <div class="pipeline-step">
                 <span class="step-index">3</span>
                 <div>
-                  <strong>Threshold decision</strong>
-                  <p>Reviews above the threshold go live. Mixed or risky reviews are routed to manual review or blocked.</p>
-                </div>
-              </div>
-              <div class="pipeline-step">
-                <span class="step-index">4</span>
-                <div>
-                  <strong>Super admin override</strong>
-                  <p>The super admin can force publish, return to moderation, or disable the automation process entirely.</p>
+                  <strong>Decision and override</strong>
+                  <p>Publish automatically or route for manual review.</p>
                 </div>
               </div>
             </div>
@@ -121,7 +187,7 @@
             <div class="pipeline-header">
               <div>
                 <span class="section-kicker">Queue</span>
-                <h4>Reviews needing attention</h4>
+                <h4>Priority queue</h4>
               </div>
               <div class="threshold-pill subtle">{{ pendingPipelineReviews.length }} items</div>
             </div>
@@ -183,9 +249,8 @@
       <section class="section">
         <div class="section-heading">
           <div>
-            <span class="section-kicker">All reviews</span>
-            <h3>Network-wide moderation desk</h3>
-            <p>See every review from every seller, including pipeline metadata and current publication state.</p>
+            <span class="section-kicker">Reviews</span>
+            <h3>Moderation desk</h3>
           </div>
         </div>
 
@@ -278,7 +343,6 @@
               <div class="empty-icon">Reviews</div>
               <h3>No reviews found</h3>
               <p>Try adjusting your filters or create the first review.</p>
-              <button class="btn-primary mt" (click)="showModal = true">Create review</button>
             </div>
           }
         }
@@ -287,12 +351,11 @@
       <section class="section">
         <div class="section-heading">
           <div>
-            <span class="section-kicker">Dashboard B</span>
-            <h3>Seller Review Performance Dashboard</h3>
-            <p>Each seller sees only their own product reviews and the pipeline analysis generated for them.</p>
+            <span class="section-kicker">Seller</span>
+            <h3>Seller Performance</h3>
           </div>
 
-          <select class="seller-select" [(ngModel)]="selectedSellerId">
+          <select class="seller-select" [(ngModel)]="selectedSellerId" (ngModelChange)="loadSellerAnalytics()">
             @for (seller of sellers; track seller.id) {
               <option [value]="seller.id">{{ seller.name }}</option>
             }
@@ -303,7 +366,7 @@
           <div class="seller-summary-card highlight">
             <span class="section-kicker">Seller focus</span>
             <h4>{{ selectedSeller?.name }}</h4>
-            <p>Review health, sentiment, and publishing visibility for this seller’s products only.</p>
+            <p>Live metrics for selected seller.</p>
           </div>
           <div class="seller-summary-card">
             <span class="metric-label">Total Reviews</span>
@@ -327,7 +390,7 @@
             <div class="pipeline-header">
               <div>
                 <span class="section-kicker">Sentiment</span>
-                <h4>Are people happy with this seller’s products?</h4>
+                <h4>Customer sentiment</h4>
               </div>
             </div>
 
@@ -354,17 +417,25 @@
               </div>
             </div>
 
-            <div class="trend-chart">
-              @for (item of sellerTrend; track item.month) {
-                <div class="trend-col">
-                  <div class="trend-bar-wrap">
-                    <div class="trend-bar" [style.height.%]="item.score"></div>
+            @if (sellerTrend.length > 0) {
+              <div class="trend-chart">
+                @for (item of sellerTrend; track item.month) {
+                  <div class="trend-col">
+                    <div class="trend-bar-wrap">
+                      <div class="trend-bar" [style.height.%]="item.score"></div>
+                    </div>
+                    <strong>{{ item.score }}</strong>
+                    <span>{{ item.month }}</span>
                   </div>
-                  <strong>{{ item.score }}</strong>
-                  <span>{{ item.month }}</span>
-                </div>
-              }
-            </div>
+                }
+              </div>
+            } @else {
+              <div class="empty-state compact">
+                <div class="empty-icon">Trend</div>
+                <h3>No data available</h3>
+                <p>Monthly seller analytics will appear here after review activity is processed.</p>
+              </div>
+            }
           </article>
         </div>
 
@@ -373,39 +444,55 @@
             <div class="pipeline-header">
               <div>
                 <span class="section-kicker">Category detail</span>
-                <h4>How each review category performs</h4>
+                <h4>Category performance</h4>
               </div>
             </div>
 
-            <div class="category-table">
-              @for (item of sellerCategoryPerformance; track item.category) {
-                <div class="category-row">
-                  <div>
-                    <strong>{{ item.category }}</strong>
-                    <span>{{ item.mentions }} mentions</span>
+            @if (sellerCategoryPerformance.length > 0) {
+              <div class="category-table">
+                @for (item of sellerCategoryPerformance; track item.category) {
+                  <div class="category-row">
+                    <div>
+                      <strong>{{ item.category }}</strong>
+                      <span>{{ item.mentions }} mentions</span>
+                    </div>
+                    <div class="category-score">{{ item.rating | number:'1.1-1' }}★</div>
                   </div>
-                  <div class="category-score">{{ item.rating | number:'1.1-1' }}★</div>
-                </div>
-              }
-            </div>
+                }
+              </div>
+            } @else {
+              <div class="empty-state compact">
+                <div class="empty-icon">Aspects</div>
+                <h3>No category insights yet</h3>
+                <p>Category-level sentiment will show up once aspect analytics are available for this seller.</p>
+              </div>
+            }
           </article>
 
           <article class="analysis-card">
             <div class="pipeline-header">
               <div>
                 <span class="section-kicker">Pipeline signals</span>
-                <h4>What the analysis engine is saying</h4>
+                <h4>Key signals</h4>
               </div>
             </div>
 
-            <div class="signal-list">
-              @for (signal of sellerTopSignals; track signal.title) {
-                <div class="signal-card" [class.good]="signal.tone === 'good'" [class.warn]="signal.tone === 'warn'" [class.danger]="signal.tone === 'danger'">
-                  <strong>{{ signal.title }}</strong>
-                  <p>{{ signal.body }}</p>
-                </div>
-              }
-            </div>
+            @if (sellerTopSignals.length > 0) {
+              <div class="signal-list">
+                @for (signal of sellerTopSignals; track signal.title) {
+                  <div class="signal-card" [class.good]="signal.tone === 'good'" [class.warn]="signal.tone === 'warn'" [class.danger]="signal.tone === 'danger'">
+                    <strong>{{ signal.title }}</strong>
+                    <p>{{ signal.body }}</p>
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="empty-state compact">
+                <div class="empty-icon">Signals</div>
+                <h3>No seller signals yet</h3>
+                <p>Review insights will appear here once this seller has real sentiment and moderation data.</p>
+              </div>
+            }
           </article>
         </div>
 
@@ -413,22 +500,29 @@
           <div class="section-heading">
             <div>
               <span class="section-kicker">Seller reviews</span>
-              <h3>Owned reviews only</h3>
-              <p>These are the reviews and pipeline decisions visible to the selected seller.</p>
+              <h3>Owned reviews</h3>
             </div>
           </div>
 
-          <div class="reviews-grid">
-            @for (review of sellerReviews; track review.id) {
-              <app-review-card
-                [review]="review"
-                [selected]="false"
-                (togglePublish)="onTogglePublish($event)"
-                (deleted)="onDelete($event)"
-                (viewDetails)="onViewReviewDetails($event)"
-              />
-            }
-          </div>
+          @if (sellerReviews.length > 0) {
+            <div class="reviews-grid">
+              @for (review of sellerReviews; track review.id) {
+                <app-review-card
+                  [review]="review"
+                  [selected]="false"
+                  (togglePublish)="onTogglePublish($event)"
+                  (deleted)="onDelete($event)"
+                  (viewDetails)="onViewReviewDetails($event)"
+                />
+              }
+            </div>
+          } @else {
+            <div class="empty-state compact">
+              <div class="empty-icon">Seller</div>
+              <h3>No seller reviews yet</h3>
+              <p>This seller does not have any real reviews to display yet.</p>
+            </div>
+          }
         </section>
       </section>
     }
@@ -436,8 +530,12 @@
 
   @if (showModal) {
     <app-add-review-modal
+      [products]="products"
+      [selectedProductId]="selectedProductIdForReview"
+      [submitting]="reviewSubmitting"
+      [submitError]="reviewSubmitError"
       (submitted)="onReviewSubmitted($event)"
-      (cancelled)="showModal = false"
+      (cancelled)="showModal = false; selectedProductIdForReview = null; reviewSubmitError = ''; reviewSubmitting = false"
     />
   }
 

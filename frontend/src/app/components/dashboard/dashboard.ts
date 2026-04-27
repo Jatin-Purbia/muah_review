@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReviewService } from '../../services/review.service';
 import { AnalyticsService, SellerAnalyticsSummary, SellerTrendPoint, SellerAspectInsight } from '../../services/analytics.service';
-import { Review, CreateSiteReviewDto, PublishFilter, SiteCategoryReview, PipelineStatus } from '../../models/review.model';
+import { Review, CreateSiteReviewDto, ProductCatalogItem, PublishFilter, SiteCategoryReview, PipelineStatus } from '../../models/review.model';
 import { ReviewCardComponent } from '../review-card/review-card';
 import { StatsBarComponent } from '../stats-bar/stats-bar';
 import { AddReviewModalComponent } from '../add-review-modal/add-review-modal';
@@ -33,9 +33,10 @@ interface PipelineMetric {
   standalone: true,
   imports: [CommonModule, FormsModule, ReviewCardComponent, StatsBarComponent, AddReviewModalComponent, ReviewDetailModalComponent],
   templateUrl: './dashboard.html',
-  styleUrl: './dashboard.scss',
+  styleUrls: ['./dashboard.scss'],
 })
 export class DashboardComponent implements OnInit {
+  products: ProductCatalogItem[] = [];
   reviews: Review[] = [];
   filteredReviews: Review[] = [];
   categoryStats: SiteCategoryReview[] = [];
@@ -47,7 +48,15 @@ export class DashboardComponent implements OnInit {
   selectedRating = 0;
   publishFilter: PublishFilter = 'all';
   showModal = false;
+  selectedProductIdForReview: string | null = null;
   successMessage = '';
+  toastMessage = '';
+  toastType: 'success' | 'error' = 'success';
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
+  reviewSubmitting = false;
+  reviewSubmitError = '';
+  productPage = 1;
+  readonly productPageSize = 12;
 
   selectedIds = new Set<string>();
   bulkLoading = false;
@@ -56,7 +65,7 @@ export class DashboardComponent implements OnInit {
   activePortal: PortalView = 'super-admin';
   pipelineAutomationEnabled = true;
   automationThreshold = 72;
-  selectedSellerId = 'seller-aurora';
+  selectedSellerId = '';
 
   get someSelected(): boolean { return this.selectedIds.size > 0; }
   get selectedCount(): number { return this.selectedIds.size; }
@@ -74,6 +83,23 @@ export class DashboardComponent implements OnInit {
     return this.reviews.filter((review) => review.sellerId === this.selectedSellerId);
   }
 
+  get productTotalPages(): number {
+    return Math.max(1, Math.ceil(this.products.length / this.productPageSize));
+  }
+
+  get pagedProducts(): ProductCatalogItem[] {
+    const start = (this.productPage - 1) * this.productPageSize;
+    return this.products.slice(start, start + this.productPageSize);
+  }
+
+  get productRangeStart(): number {
+    return this.products.length ? (this.productPage - 1) * this.productPageSize + 1 : 0;
+  }
+
+  get productRangeEnd(): number {
+    return Math.min(this.productPage * this.productPageSize, this.products.length);
+  }
+
   get sellerPublishedReviews(): Review[] {
     return this.sellerReviews.filter((review) => review.isActive);
   }
@@ -83,16 +109,16 @@ export class DashboardComponent implements OnInit {
   }
 
   get sellers(): SellerSummary[] {
-    const groups = new Map<string, Review[]>();
+    const groups = new Map<string, ProductCatalogItem[]>();
 
-    for (const review of this.reviews) {
-      const sellerId = review.sellerId ?? 'unknown';
-      const list = groups.get(sellerId) ?? [];
-      list.push(review);
-      groups.set(sellerId, list);
+    for (const product of this.products) {
+      const list = groups.get(product.sellerId) ?? [];
+      list.push(product);
+      groups.set(product.sellerId, list);
     }
 
-    return [...groups.entries()].map(([sellerId, sellerReviews]) => {
+    return [...groups.entries()].map(([sellerId, sellerProducts]) => {
+      const sellerReviews = this.reviews.filter((review) => review.sellerId === sellerId);
       const totalReviews = sellerReviews.length;
       const publishedReviews = sellerReviews.filter((review) => review.isActive).length;
       const averageRating = totalReviews ? sellerReviews.reduce((sum, review) => sum + (review.starRating ?? 0), 0) / totalReviews : 0;
@@ -105,7 +131,7 @@ export class DashboardComponent implements OnInit {
 
       return {
         id: sellerId,
-        name: sellerReviews[0]?.sellerName ?? 'Unknown seller',
+        name: sellerProducts[0]?.sellerName ?? 'Unknown seller',
         totalReviews,
         publishedReviews,
         averageRating,
@@ -173,57 +199,52 @@ export class DashboardComponent implements OnInit {
   }
 
   get sellerCategoryPerformance(): { category: string; rating: number; mentions: number }[] {
-    if (this.sellerAspects.length > 0) {
-      return this.sellerAspects.map((aspect) => ({
-        category: aspect.aspect.replace(/_/g, ' ').charAt(0).toUpperCase() + aspect.aspect.slice(1),
-        rating: aspect.positive_mentions > 0 ? 4 : aspect.neutral_mentions > 0 ? 3 : 2,
-        mentions: aspect.positive_mentions + aspect.negative_mentions + aspect.neutral_mentions,
-      }));
-    }
-
-    return [
-      { category: 'Product Quality', rating: 4.2, mentions: 12 },
-      { category: 'Delivery', rating: 4.5, mentions: 8 },
-      { category: 'Service', rating: 4.1, mentions: 6 },
-    ];
+    return this.sellerAspects.map((aspect) => ({
+      category: aspect.aspect.replace(/_/g, ' ').charAt(0).toUpperCase() + aspect.aspect.slice(1),
+      rating: aspect.positive_mentions > 0 ? 4 : aspect.neutral_mentions > 0 ? 3 : 2,
+      mentions: aspect.positive_mentions + aspect.negative_mentions + aspect.neutral_mentions,
+    }));
   }
 
   get sellerTrend(): { month: string; score: number }[] {
-    if (this.sellerTrends.length > 0) {
-      return this.sellerTrends.map((trend) => ({
-        month: trend.date_label,
-        score: Math.round(trend.avg_rating * 20),
-      }));
-    }
-    return [
-      { month: 'Jan', score: 62 },
-      { month: 'Feb', score: 68 },
-      { month: 'Mar', score: 74 },
-      { month: 'Apr', score: this.selectedSeller?.satisfaction ?? 70 },
-    ];
+    return this.sellerTrends.map((trend) => ({
+      month: trend.date_label,
+      score: Math.round(trend.avg_rating * 20),
+    }));
   }
 
   get sellerTopSignals(): { title: string; body: string; tone: 'good' | 'warn' | 'danger' }[] {
     const topNegative = this.sellerFlaggedReviews[0];
     const topPositive = [...this.sellerReviews].sort((a, b) => (b.sentimentScore ?? 0) - (a.sentimentScore ?? 0))[0];
+    const signals: { title: string; body: string; tone: 'good' | 'warn' | 'danger' }[] = [];
 
-    return [
-      {
+    if (topPositive) {
+      signals.push({
         title: 'What customers love',
-        body: topPositive ? `${topPositive.productName}: strongest signal around ${topPositive.segments?.[0]?.segment?.toLowerCase() ?? 'overall product quality'}.` : 'Positive product sentiment is trending up.',
+        body: `${topPositive.productName}: strongest signal around ${topPositive.segments?.[0]?.segment?.toLowerCase() ?? 'overall product quality'}.`,
         tone: 'good',
-      },
-      {
+      });
+    }
+
+    if (topNegative) {
+      signals.push({
         title: 'What needs work',
-        body: topNegative ? `${topNegative.productName}: pipeline flagged concerns around ${topNegative.segments?.find((segment) => segment.sentiment === 'negative')?.segment?.toLowerCase() ?? 'review sentiment'}.` : 'No major risks in the current seller queue.',
-        tone: topNegative ? 'danger' : 'warn',
-      },
-      {
+        body: `${topNegative.productName}: pipeline flagged concerns around ${topNegative.segments?.find((segment) => segment.sentiment === 'negative')?.segment?.toLowerCase() ?? 'review sentiment'}.`,
+        tone: 'danger',
+      });
+    }
+
+    if (this.sellerReviews.length > 0) {
+      signals.push({
         title: 'Action recommendation',
-        body: 'Use this dashboard to compare category sentiment, identify weak spots, and coordinate with support or operations before publishing more reviews.',
-        tone: 'warn',
-      },
-    ];
+        body: this.sellerFlaggedReviews.length > 0
+          ? `${this.sellerFlaggedReviews.length} review(s) still need attention before the seller view is fully clear.`
+          : `${this.sellerPublishedReviews.length} published review(s) are currently live with no flagged seller issues.`,
+        tone: this.sellerFlaggedReviews.length > 0 ? 'warn' : 'good',
+      });
+    }
+
+    return signals;
   }
 
   sellerAnalytics: SellerAnalyticsSummary | null = null;
@@ -236,9 +257,25 @@ export class DashboardComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.loadProducts();
     this.loadReviews();
     this.loadStatistics();
-    this.loadSellerAnalytics();
+  }
+
+  loadProducts(): void {
+    this.reviewService.getProducts().subscribe({
+      next: (products) => {
+        this.products = products;
+        this.productPage = 1;
+        if (!this.selectedSellerId && this.sellers[0]) {
+          this.selectedSellerId = this.sellers[0].id;
+          this.loadSellerAnalytics();
+        }
+      },
+      error: () => {
+        this.error = 'Failed to load products.';
+      },
+    });
   }
 
   loadStatistics(): void {
@@ -249,17 +286,23 @@ export class DashboardComponent implements OnInit {
   }
 
   loadSellerAnalytics(): void {
+    if (!this.selectedSellerId) {
+      return;
+    }
+    this.sellerAnalytics = null;
+    this.sellerTrends = [];
+    this.sellerAspects = [];
     this.analyticsService.getSummary(this.selectedSellerId).subscribe({
       next: (summary) => { this.sellerAnalytics = summary; },
-      error: () => { /* fallback to computed stats */ },
+      error: () => { this.sellerAnalytics = null; },
     });
     this.analyticsService.getTrends(this.selectedSellerId).subscribe({
       next: (trends) => { this.sellerTrends = trends; },
-      error: () => { /* non-critical */ },
+      error: () => { this.sellerTrends = []; },
     });
     this.analyticsService.getAspects(this.selectedSellerId).subscribe({
       next: (aspects) => { this.sellerAspects = aspects; },
-      error: () => { /* non-critical */ },
+      error: () => { this.sellerAspects = []; },
     });
   }
 
@@ -365,13 +408,21 @@ export class DashboardComponent implements OnInit {
   onTogglePublish(event: { review: Review; published: boolean }): void {
     this.reviewService.togglePublish(event.review.id, event.published).subscribe({
       next: (response) => {
-        this.loadReviews();
-        this.successMessage = response.isActive ? 'Review published to website.' : 'Review moved back to moderation.';
-        setTimeout(() => (this.successMessage = ''), 3000);
+        this.reviews = this.reviews.map((review) => review.id === response.id
+          ? {
+              ...review,
+              isActive: response.isActive,
+              pipelineStatus: response.isActive ? 'approved' : 'manual-review',
+              updatedAt: new Date().toISOString(),
+            }
+          : review
+        );
+        this.applyFilters();
+        this.loadSellerAnalytics();
+        this.showToast(response.isActive ? 'Review published to website.' : 'Review moved back to moderation.', 'success');
       },
       error: () => {
-        this.error = 'Failed to update publish state.';
-        setTimeout(() => (this.error = ''), 3000);
+        this.showToast('Failed to update publish state.', 'error');
       },
     });
   }
@@ -404,13 +455,11 @@ export class DashboardComponent implements OnInit {
         this.selectedIds.clear();
         this.loadReviews();
         this.bulkLoading = false;
-        this.successMessage = `${ids.length} review(s) published.`;
-        setTimeout(() => (this.successMessage = ''), 3000);
+        this.showToast(`${ids.length} review(s) published.`, 'success');
       },
       error: () => {
-        this.error = 'Bulk publish failed.';
         this.bulkLoading = false;
-        setTimeout(() => (this.error = ''), 4000);
+        this.showToast('Bulk publish failed.', 'error');
       },
     });
   }
@@ -423,13 +472,11 @@ export class DashboardComponent implements OnInit {
         this.selectedIds.clear();
         this.loadReviews();
         this.bulkLoading = false;
-        this.successMessage = `${ids.length} review(s) moved to moderation.`;
-        setTimeout(() => (this.successMessage = ''), 3000);
+        this.showToast(`${ids.length} review(s) moved to moderation.`, 'success');
       },
       error: () => {
-        this.error = 'Bulk unpublish failed.';
         this.bulkLoading = false;
-        setTimeout(() => (this.error = ''), 4000);
+        this.showToast('Bulk unpublish failed.', 'error');
       },
     });
   }
@@ -443,13 +490,11 @@ export class DashboardComponent implements OnInit {
         this.selectedIds.clear();
         this.applyFilters();
         this.bulkLoading = false;
-        this.successMessage = `${ids.length} review(s) deleted.`;
-        setTimeout(() => (this.successMessage = ''), 3000);
+        this.showToast(`${ids.length} review(s) deleted.`, 'success');
       },
       error: () => {
-        this.error = 'Bulk delete failed.';
         this.bulkLoading = false;
-        setTimeout(() => (this.error = ''), 4000);
+        this.showToast('Bulk delete failed.', 'error');
       },
     });
   }
@@ -459,29 +504,43 @@ export class DashboardComponent implements OnInit {
       next: () => {
         this.reviews = this.reviews.filter((item) => item.id !== review.id);
         this.applyFilters();
-        this.successMessage = 'Review deleted.';
-        setTimeout(() => (this.successMessage = ''), 3000);
+        this.showToast('Review deleted successfully.', 'success');
       },
       error: () => {
-        this.error = 'Failed to delete review.';
-        setTimeout(() => (this.error = ''), 4000);
+        this.showToast('Failed to delete review.', 'error');
       },
     });
   }
 
   onReviewSubmitted(dto: CreateSiteReviewDto): void {
-    this.showModal = false;
+    this.reviewSubmitting = true;
+    this.reviewSubmitError = '';
     this.reviewService.createReview(dto).subscribe({
       next: () => {
-        this.successMessage = 'Review submitted successfully.';
+        this.reviewSubmitting = false;
+        this.showModal = false;
+        this.selectedProductIdForReview = null;
+        this.showToast('Review added successfully.', 'success');
         this.loadReviews();
-        setTimeout(() => (this.successMessage = ''), 3500);
       },
       error: () => {
-        this.error = 'Failed to submit review. Please try again.';
-        setTimeout(() => (this.error = ''), 5000);
+        this.reviewSubmitting = false;
+        this.reviewSubmitError = 'Failed to submit review. Please check the details and try again.';
       },
     });
+  }
+
+  private showToast(message: string, type: 'success' | 'error' = 'success'): void {
+    if (this.toastTimer) {
+      clearTimeout(this.toastTimer);
+      this.toastTimer = null;
+    }
+    this.toastMessage = message;
+    this.toastType = type;
+    this.toastTimer = setTimeout(() => {
+      this.toastMessage = '';
+      this.toastTimer = null;
+    }, 3200);
   }
 
   trackByReview(index: number, review: Review): string {
@@ -508,5 +567,30 @@ export class DashboardComponent implements OnInit {
 
   onCloseReviewDetail(): void {
     this.selectedReviewForDetail = null;
+  }
+
+  previousProductPage(): void {
+    if (this.productPage > 1) {
+      this.productPage -= 1;
+    }
+  }
+
+  nextProductPage(): void {
+    if (this.productPage < this.productTotalPages) {
+      this.productPage += 1;
+    }
+  }
+
+  openReviewModal(product?: ProductCatalogItem): void {
+    if (!product) {
+      this.error = 'Choose Write Review on a product card so the product and seller are selected automatically.';
+      setTimeout(() => (this.error = ''), 4000);
+      return;
+    }
+
+    this.reviewSubmitError = '';
+    this.reviewSubmitting = false;
+    this.selectedProductIdForReview = product.id;
+    this.showModal = true;
   }
 }

@@ -24,7 +24,7 @@ export class ReviewCardComponent {
 
   get stars(): string[] {
     const rating = this.review.starRating ?? 0;
-    return Array(5).fill('').map((_, index) => (index < rating ? '★' : '☆'));
+    return Array(5).fill('').map((_, index) => (index < rating ? '*' : 'o'));
   }
 
   get displayName(): string {
@@ -55,6 +55,22 @@ export class ReviewCardComponent {
             : 'Pending';
   }
 
+  get statusLabel(): string {
+    if (this.review.isActive || this.review.pipelineStatus === 'approved') {
+      return 'Published';
+    }
+
+    if (this.review.pipelineStatus === 'manual-review') {
+      return 'Manual Review';
+    }
+
+    if (this.review.pipelineStatus === 'blocked') {
+      return 'Blocked';
+    }
+
+    return 'Pending Review';
+  }
+
   onToggle(): void {
     this.toggling = true;
     this.confirmPublish = false;
@@ -72,7 +88,6 @@ export class ReviewCardComponent {
   }
 
   onCardClick(event: MouseEvent): void {
-    // Don't open details if clicking action buttons
     const target = event.target as HTMLElement;
     if (target.closest('.menu-btn-group') || target.closest('.vote-btn')) {
       return;

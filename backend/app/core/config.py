@@ -1,7 +1,10 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 
 class Settings(BaseSettings):
@@ -18,8 +21,11 @@ class Settings(BaseSettings):
 
     ollama_host: str = "http://localhost:11434"
     ollama_model: str = "qwen2:1.5b"
+    astra_db_enabled: bool = False
+    astra_db_endpoint: str | None = None
+    astra_db_token: str | None = None
 
-    model_config = SettingsConfigDict(env_file=".env", env_prefix="REVIEW_", extra="ignore")
+    model_config = SettingsConfigDict(env_file=ENV_FILE, env_prefix="REVIEW_", extra="ignore")
 
     @field_validator("cors_origins", mode="before")
     @classmethod

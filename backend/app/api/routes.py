@@ -1,11 +1,12 @@
 from fastapi import APIRouter, BackgroundTasks, Depends
 
-from app.api.deps import get_config_service, get_repo, get_review_workflow_service, get_seller_analytics_service
-from app.repositories.memory import InMemoryRepository
+from app.api.deps import get_config_service, get_product_catalog_service, get_repo, get_review_workflow_service, get_seller_analytics_service
+from app.repositories.base import ReviewRepository
 from app.schemas.admin import ManualModerationRequest, ModerationConfigPatchRequest
 from app.schemas.review import ReviewCreateRequest
 from app.services.analytics import SellerAnalyticsService
 from app.services.moderation_config import ModerationConfigService
+from app.services.products import ProductCatalogService
 from app.services.review_workflow import ReviewWorkflowService
 
 router = APIRouter()
@@ -30,8 +31,22 @@ def submit_review(
 
 
 @router.get("/reviews/{review_id}")
-def get_review_detail(review_id: str, workflow: ReviewWorkflowService = Depends(get_review_workflow_service)) -> dict:
-    return workflow.get_review_detail(review_id)
+def get_review_detail(
+    review_id: str,
+    workflow: ReviewWorkflowService = Depends(get_review_workflow_service),
+    products: ProductCatalogService = Depends(get_product_catalog_service),
+) -> dict:
+    detail = workflow.get_review_detail(review_id)
+    product = products.get_product(detail["product_id"])
+    if product:
+        detail["product_name"] = product["name"]
+        detail["seller_name"] = product["seller_name"]
+    return detail
+
+
+@router.get("/products")
+def get_products(products: ProductCatalogService = Depends(get_product_catalog_service)) -> list[dict]:
+    return products.list_products()
 
 
 @router.get("/seller/{seller_id}/reviews")
@@ -67,8 +82,22 @@ def get_seller_aspects(
 
 
 @router.get("/admin/reviews")
-def get_admin_reviews(repo: InMemoryRepository = Depends(get_repo)) -> list[dict]:
-    return [review.model_dump() for review in repo.list_reviews()]
+def get_admin_reviews(
+    repo: ReviewRepository = Depends(get_repo),
+    products: ProductCatalogService = Depends(get_product_catalog_service),
+) -> list[dict]:
+    result: list[dict] = []
+    for review in repo.list_reviews():
+        detail = review.model_dump()
+        text_analysis = repo.get_text_analysis(review.id)
+        fusion_decision = repo.get_fusion_decision(review.id)
+        product = products.get_product(review.product_id)
+        detail["text_analysis"] = text_analysis.model_dump() if text_analysis else None
+        detail["fusion_decision"] = fusion_decision.model_dump() if fusion_decision else None
+        detail["product_name"] = product["name"] if product else review.product_id
+        detail["seller_name"] = product["seller_name"] if product else review.seller_id
+        result.append(detail)
+    return result
 
 
 @router.post("/admin/reviews/{review_id}/publish")
@@ -96,6 +125,15 @@ def admin_unpublish_review(
     workflow: ReviewWorkflowService = Depends(get_review_workflow_service),
 ) -> dict:
     return workflow.unpublish_review(review_id, request).model_dump()
+
+
+@router.delete("/admin/reviews/{review_id}")
+def admin_delete_review(
+    review_id: str,
+    request: ManualModerationRequest,
+    workflow: ReviewWorkflowService = Depends(get_review_workflow_service),
+) -> dict:
+    return workflow.delete_review(review_id, request)
 
 
 @router.get("/admin/moderation-config")

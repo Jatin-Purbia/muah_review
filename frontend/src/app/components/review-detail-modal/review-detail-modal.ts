@@ -29,7 +29,7 @@ export class ReviewDetailModalComponent {
 
   get stars(): string[] {
     const rating = this.review.starRating ?? 0;
-    return Array(5).fill('').map((_, index) => (index < rating ? '★' : '☆'));
+    return Array(5).fill('').map((_, index) => (index < rating ? '*' : 'o'));
   }
 
   get pipelineDisplay(): string {
@@ -42,6 +42,22 @@ export class ReviewDetailModalComponent {
           : this.review.pipelineStatus === 'blocked'
             ? 'Blocked'
             : 'Pending';
+  }
+
+  get statusLabel(): string {
+    if (this.review.isActive || this.review.pipelineStatus === 'approved') {
+      return 'Published';
+    }
+
+    if (this.review.pipelineStatus === 'manual-review') {
+      return 'Manual Review';
+    }
+
+    if (this.review.pipelineStatus === 'blocked') {
+      return 'Blocked';
+    }
+
+    return 'Pending Review';
   }
 
   get categoryReasonTitle(): string {

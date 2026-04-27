@@ -1,9 +1,8 @@
 <div class="card" [class.unpublished]="!review.isActive" [class.published]="review.isActive" (click)="onCardClick($event)">
-  <!-- Header with metadata -->
   <div class="card-header">
     <div class="header-left">
       <span class="status-badge" [class.published]="review.isActive" [class.draft]="!review.isActive">
-        {{ review.isActive ? '✓ Published' : '⧗ Draft' }}
+        {{ review.isActive ? 'Published' : statusLabel }}
       </span>
 
       <span class="score-badge">Pipeline: {{ pipelineDisplay }}</span>
@@ -16,7 +15,6 @@
     </div>
   </div>
 
-  <!-- Metadata chips -->
   <div class="metadata-section">
     @if (review.sellerName) {
       <span class="chip seller">{{ review.sellerName }}</span>
@@ -26,17 +24,15 @@
     }
   </div>
 
-  <!-- Rating -->
   <div class="rating-section">
     <div class="stars">
       @for (s of stars; track $index) {
-        <span [class.filled]="s === '★'">{{ s }}</span>
+        <span [class.filled]="s === '*'">{{ s }}</span>
       }
     </div>
     <span class="rating-text">{{ review.starRating }}/5 stars</span>
   </div>
 
-  <!-- Content -->
   <div class="content-section">
     <h3 class="title">{{ review.title }}</h3>
 
@@ -44,13 +40,12 @@
       <p class="description" [class.expanded]="expanded">{{ review.description }}</p>
       @if (commentNeedsExpansion) {
         <button class="expand-btn" (click)="toggleExpand(); $event.stopPropagation()">
-          {{ expanded ? '↑ Show less' : '↓ Read more' }}
+          {{ expanded ? 'Show less' : 'Read more' }}
         </button>
       }
     </div>
   </div>
 
-  <!-- Action buttons -->
   <div class="actions-section">
     @if (!confirmDelete && !confirmPublish) {
       <button
@@ -58,7 +53,7 @@
         (click)="viewDetails.emit(review); $event.stopPropagation()"
         title="View full details"
       >
-        👁 View Details
+        View Details
       </button>
 
       <button
@@ -67,9 +62,9 @@
         [class.unpublish]="review.isActive"
         [disabled]="toggling"
         (click)="confirmPublish = true; $event.stopPropagation()"
-        [title]="review.isActive ? 'Move to draft' : 'Publish review'"
+        [title]="review.isActive ? 'Move to moderation' : 'Publish review'"
       >
-        {{ review.isActive ? '⬇ Unpublish' : '⬆ Publish' }}
+        {{ review.isActive ? 'Unpublish' : 'Publish' }}
       </button>
 
       <button
@@ -77,11 +72,11 @@
         title="Delete review"
         (click)="confirmDelete = true; $event.stopPropagation()"
       >
-        🗑 Delete
+        Delete
       </button>
     } @else if (confirmPublish) {
       <div class="confirm-prompt">
-        <span class="prompt-message">{{ review.isActive ? 'Move to draft?' : 'Publish this review?' }}</span>
+        <span class="prompt-message">{{ review.isActive ? 'Move this review to moderation?' : 'Publish this review?' }}</span>
         <div class="confirm-actions">
           <button class="confirm-btn yes" (click)="onToggle(); $event.stopPropagation()">Confirm</button>
           <button class="confirm-btn no" (click)="confirmPublish = false; $event.stopPropagation()">Cancel</button>

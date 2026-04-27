@@ -14,9 +14,10 @@ from app.models.domain import (
     ReviewVideoAnalysis,
 )
 from app.models.enums import ReviewStatus
+from app.repositories.base import ReviewRepository
 
 
-class InMemoryRepository:
+class InMemoryRepository(ReviewRepository):
     def __init__(self, config: ModerationConfig) -> None:
         self.reviews: dict[str, Review] = {}
         self.review_media: dict[str, ReviewMedia] = {}
@@ -36,6 +37,22 @@ class InMemoryRepository:
 
     def get_review(self, review_id: str) -> Review | None:
         return self.reviews.get(review_id)
+
+    def delete_review(self, review_id: str) -> bool:
+        review = self.reviews.pop(review_id, None)
+        if not review:
+            return False
+
+        media_ids = [media.id for media in self.review_media.values() if media.review_id == review_id]
+        for media_id in media_ids:
+            self.review_media.pop(media_id, None)
+            self.image_analysis.pop(media_id, None)
+            self.video_analysis.pop(media_id, None)
+
+        self.text_analysis.pop(review_id, None)
+        self.fusion_decisions.pop(review_id, None)
+        self.logs.pop(review_id, None)
+        return True
 
     def update_review_status(self, review_id: str, status: ReviewStatus, *, is_published: bool | None = None) -> Review:
         review = self.reviews[review_id]

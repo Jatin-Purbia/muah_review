@@ -1,12 +1,12 @@
 from collections import defaultdict
 
 from app.models.enums import ReviewStatus
-from app.repositories.memory import InMemoryRepository
+from app.repositories.base import ReviewRepository
 from app.schemas.analytics import SellerAnalyticsSummary, SellerAspectInsight, SellerTrendPoint
 
 
 class SellerAnalyticsService:
-    def __init__(self, repo: InMemoryRepository) -> None:
+    def __init__(self, repo: ReviewRepository) -> None:
         self.repo = repo
 
     def list_reviews(self, seller_id: str) -> list[dict]:
