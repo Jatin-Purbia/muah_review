@@ -3,3 +3,6 @@ venv
 amazon_reviews_data
 backend/.env
 .env
+backend/.env*
+!.env.example
+!backend/.env.example
