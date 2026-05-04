@@ -337,6 +337,7 @@
                 <app-review-card
                   [review]="review"
                   [selected]="isSelected(review.id)"
+                  [processing]="isProcessingReview(review.id)"
                   (selectionChange)="toggleSelectOne(review.id)"
                   (togglePublish)="onTogglePublish($event)"
                   (deleted)="onDelete($event)"
@@ -516,6 +517,7 @@
                 <app-review-card
                   [review]="review"
                   [selected]="false"
+                  [processing]="isProcessingReview(review.id)"
                   (togglePublish)="onTogglePublish($event)"
                   (deleted)="onDelete($event)"
                   (viewDetails)="onViewReviewDetails($event)"

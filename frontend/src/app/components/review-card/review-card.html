@@ -27,6 +27,18 @@
     }
   </div>
 
+  @if (processing) {
+    <div class="processing-panel">
+      <div class="processing-copy">
+        <strong>Processing review</strong>
+        <span>Running moderation and sentiment checks...</span>
+      </div>
+      <div class="processing-bar" aria-hidden="true">
+        <span class="processing-bar-fill"></span>
+      </div>
+    </div>
+  }
+
   <div class="rating-section">
     <div class="stars">
       @for (s of stars; track $index) {
@@ -63,7 +75,7 @@
         class="action-btn"
         [class.publish]="!review.isActive"
         [class.unpublish]="review.isActive"
-        [disabled]="toggling"
+        [disabled]="toggling || processing"
         (click)="confirmPublish = true; $event.stopPropagation()"
         [title]="review.isActive ? 'Move to moderation' : 'Publish review'"
       >
@@ -73,6 +85,7 @@
       <button
         class="action-btn delete"
         title="Delete review"
+        [disabled]="processing"
         (click)="confirmDelete = true; $event.stopPropagation()"
       >
         Delete

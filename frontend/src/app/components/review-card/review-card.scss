@@ -93,6 +93,59 @@
   flex-wrap: wrap;
 }
 
+.processing-panel {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.9rem 1.2rem;
+  border-bottom: 1px solid rgba(89, 73, 58, 0.08);
+  background: rgba(184, 92, 56, 0.06);
+}
+
+.processing-copy {
+  display: grid;
+  gap: 0.18rem;
+
+  strong {
+    color: #8e3f22;
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  span {
+    color: #6a5d51;
+    font-size: 0.8rem;
+  }
+}
+
+.processing-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(184, 92, 56, 0.12);
+  overflow: hidden;
+}
+
+.processing-bar-fill {
+  display: block;
+  width: 38%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #d39a64, #8e3f22);
+  animation: processing-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes processing-slide {
+  0% {
+    transform: translateX(-120%);
+  }
+
+  100% {
+    transform: translateX(320%);
+  }
+}
+
 .chip {
   font-size: 0.68rem;
   font-weight: 800;

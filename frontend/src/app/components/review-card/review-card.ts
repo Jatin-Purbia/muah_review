@@ -12,6 +12,7 @@ import { Review } from '../../models/review.model';
 export class ReviewCardComponent {
   @Input() review!: Review;
   @Input() selected = false;
+  @Input() processing = false;
   @Output() togglePublish = new EventEmitter<{ review: Review; published: boolean }>();
   @Output() deleted = new EventEmitter<Review>();
   @Output() selectionChange = new EventEmitter<boolean>();
@@ -56,6 +57,10 @@ export class ReviewCardComponent {
   }
 
   get statusLabel(): string {
+    if (this.processing && this.review.pipelineStatus === 'pending') {
+      return 'Processing';
+    }
+
     if (this.review.isActive || this.review.pipelineStatus === 'approved') {
       return 'Published';
     }

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReviewService } from '../../services/review.service';
@@ -42,7 +42,7 @@ interface CategoryTabStat {
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.scss'],
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   readonly reviewCategories = ['Products', 'Delivery', 'Service', 'Returns', 'Website', 'Complaints'];
   products: ProductCatalogItem[] = [];
   reviews: Review[] = [];
@@ -65,6 +65,8 @@ export class DashboardComponent implements OnInit {
   reviewSubmitError = '';
   productPage = 1;
   readonly productPageSize = 12;
+  processingReviewIds = new Set<string>();
+  private processingPollTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   selectedIds = new Set<string>();
   bulkLoading = false;
@@ -314,6 +316,13 @@ export class DashboardComponent implements OnInit {
     this.loadStatistics();
   }
 
+  ngOnDestroy(): void {
+    for (const timer of this.processingPollTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.processingPollTimers.clear();
+  }
+
   loadProducts(): void {
     this.reviewService.getProducts().subscribe({
       next: (products) => {
@@ -364,6 +373,13 @@ export class DashboardComponent implements OnInit {
     this.reviewService.getReviews().subscribe({
       next: (data) => {
         this.reviews = data;
+        const loadedIds = new Set(data.map((review) => review.id));
+        for (const reviewId of [...this.processingReviewIds]) {
+          if (!loadedIds.has(reviewId)) {
+            this.processingReviewIds.delete(reviewId);
+            this.clearProcessingPoll(reviewId);
+          }
+        }
         if (!this.sellers.find((seller) => seller.id === this.selectedSellerId) && this.sellers[0]) {
           this.selectedSellerId = this.sellers[0].id;
         }
@@ -575,12 +591,29 @@ export class DashboardComponent implements OnInit {
     this.reviewSubmitting = true;
     this.reviewSubmitError = '';
     this.reviewService.createReview(dto).subscribe({
-      next: () => {
+      next: (createdReview) => {
+        const selectedProduct = this.products.find((product) => product.id === dto.productId);
+        const enrichedReview: Review = {
+          ...createdReview,
+          category: createdReview.category || dto.category,
+          sellerId: createdReview.sellerId || dto.sellerId,
+          sellerName: selectedProduct?.sellerName ?? createdReview.sellerName ?? dto.sellerId,
+          productName: selectedProduct?.name ?? createdReview.productName ?? dto.productId,
+          pipelineStatus: createdReview.pipelineStatus ?? 'pending',
+          isActive: createdReview.isActive ?? false,
+        };
+
+        this.reviews = [enrichedReview, ...this.reviews.filter((review) => review.id !== enrichedReview.id)];
+        this.processingReviewIds.add(enrichedReview.id);
+        this.applyFilters();
+        this.loadSellerAnalytics();
+        this.loadStatistics();
+
         this.reviewSubmitting = false;
         this.showModal = false;
         this.selectedProductIdForReview = null;
-        this.showToast('Review added successfully.', 'success');
-        this.loadReviews();
+        this.showToast('Review submitted. Processing moderation now...', 'success');
+        this.startProcessingPoll(enrichedReview.id);
       },
       error: () => {
         this.reviewSubmitting = false;
@@ -651,5 +684,65 @@ export class DashboardComponent implements OnInit {
     this.reviewSubmitting = false;
     this.selectedProductIdForReview = product.id;
     this.showModal = true;
+  }
+
+  isProcessingReview(reviewId: string): boolean {
+    return this.processingReviewIds.has(reviewId);
+  }
+
+  private startProcessingPoll(reviewId: string, attempt = 0): void {
+    this.clearProcessingPoll(reviewId);
+
+    this.reviewService.getById(reviewId).subscribe({
+      next: (review) => {
+        this.reviews = this.reviews.map((item) => item.id === reviewId
+          ? {
+              ...item,
+              ...review,
+              sellerName: review.sellerName || item.sellerName,
+              productName: review.productName || item.productName,
+            }
+          : item
+        );
+        this.applyFilters();
+        this.loadSellerAnalytics();
+        this.loadStatistics();
+
+        if (review.pipelineStatus === 'pending' && attempt < 20) {
+          const timer = setTimeout(() => this.startProcessingPoll(reviewId, attempt + 1), 1200);
+          this.processingPollTimers.set(reviewId, timer);
+          return;
+        }
+
+        this.processingReviewIds.delete(reviewId);
+        this.clearProcessingPoll(reviewId);
+
+        if (review.pipelineStatus === 'approved') {
+          this.showToast('Review processed and published.', 'success');
+        } else if (review.pipelineStatus === 'manual-review') {
+          this.showToast('Review processed and moved to manual review.', 'success');
+        } else if (review.pipelineStatus === 'blocked') {
+          this.showToast('Review processed and blocked.', 'error');
+        }
+      },
+      error: () => {
+        if (attempt < 20) {
+          const timer = setTimeout(() => this.startProcessingPoll(reviewId, attempt + 1), 1500);
+          this.processingPollTimers.set(reviewId, timer);
+          return;
+        }
+
+        this.processingReviewIds.delete(reviewId);
+        this.clearProcessingPoll(reviewId);
+      },
+    });
+  }
+
+  private clearProcessingPoll(reviewId: string): void {
+    const timer = this.processingPollTimers.get(reviewId);
+    if (timer) {
+      clearTimeout(timer);
+      this.processingPollTimers.delete(reviewId);
+    }
   }
 }
