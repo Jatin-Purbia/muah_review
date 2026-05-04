@@ -30,7 +30,7 @@
   <div class="rating-section">
     <div class="stars">
       @for (s of stars; track $index) {
-        <span [class.filled]="s === '*'">{{ s }}</span>
+        <span [class.filled]="s === '*'">{{ s === '*' ? '★' : '☆' }}</span>
       }
     </div>
     <span class="rating-text">{{ review.starRating }}/5 stars</span>

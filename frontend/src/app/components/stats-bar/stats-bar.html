@@ -25,7 +25,7 @@
     <div class="bars">
       @for (item of ratingDistribution; track item.star) {
         <div class="bar-row">
-          <span class="bar-label">{{ item.star }}★</span>
+          <span class="bar-label">{{ item.star }}&#9733;</span>
           <div class="bar-track">
             <div class="bar-fill" [style.width]="getBarWidth(item.count)"></div>
           </div>
@@ -45,7 +45,7 @@
         <div class="cat-chip">
           <span class="chip-name">{{ cat.name }}</span>
           @if (cat.rating > 0) {
-            <span class="chip-rating">{{ cat.rating | number:'1.1-1' }}★</span>
+            <span class="chip-rating">{{ cat.rating | number:'1.1-1' }}&#9733;</span>
           }
         </div>
       }

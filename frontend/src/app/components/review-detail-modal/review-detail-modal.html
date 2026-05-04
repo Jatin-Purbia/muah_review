@@ -3,7 +3,7 @@
     <div class="modal-header">
       <div class="header-top">
         <h2>Review Details</h2>
-        <button class="close-btn" (click)="onClose()">X</button>
+        <button class="close-btn" (click)="onClose()">&times;</button>
       </div>
       <div class="review-meta">
         @if (review.category) {
@@ -25,7 +25,7 @@
       <div class="rating-section">
         <div class="stars">
           @for (s of stars; track $index) {
-            <span [class.filled]="s === '*'">{{ s }}</span>
+            <span [class.filled]="s === '*'">{{ s === '*' ? '★' : '☆' }}</span>
           }
         </div>
         <span class="rating-value">{{ review.starRating }}/5 stars</span>

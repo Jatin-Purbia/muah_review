@@ -1,8 +1,8 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(248, 250, 252, 0.75);
-  backdrop-filter: blur(10px);
+  background: rgba(33, 24, 18, 0.34);
+  backdrop-filter: blur(14px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -11,15 +11,15 @@
 }
 
 .modal {
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  border-radius: 28px;
+  background: rgba(255, 252, 248, 0.96);
+  border: 1px solid rgba(89, 73, 58, 0.12);
+  border-radius: 30px;
   width: 100%;
   max-width: 520px;
   max-height: 90vh;
   overflow-y: auto;
   animation: slideUp 0.2s ease;
-  box-shadow: 0 30px 80px rgba(148, 163, 184, 0.22);
+  box-shadow: 0 34px 80px rgba(33, 24, 18, 0.22);
 
   @keyframes slideUp {
     from {
@@ -42,16 +42,15 @@
 
   h2 {
     margin: 0;
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: #0f172a;
+    font-size: 1.4rem;
+    color: #241f1b;
   }
 }
 
 .close-btn {
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  color: #c2410c;
+  background: rgba(184, 92, 56, 0.1);
+  border: 1px solid rgba(184, 92, 56, 0.16);
+  color: #8e3f22;
   min-width: 72px;
   height: 36px;
   border-radius: 999px;
@@ -70,11 +69,11 @@
 }
 
 .form-error {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #b91c1c;
+  background: rgba(178, 70, 63, 0.1);
+  border: 1px solid rgba(178, 70, 63, 0.16);
+  color: #8b2f2b;
   padding: 0.7rem 1rem;
-  border-radius: 8px;
+  border-radius: 14px;
   font-size: 0.85rem;
   margin-bottom: 1rem;
 }
@@ -84,11 +83,11 @@
 }
 
 .submit-state {
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  color: #9a3412;
+  background: rgba(184, 92, 56, 0.1);
+  border: 1px solid rgba(184, 92, 56, 0.16);
+  color: #8e3f22;
   padding: 0.7rem 1rem;
-  border-radius: 8px;
+  border-radius: 14px;
   font-size: 0.85rem;
   margin-bottom: 1rem;
 }
@@ -98,21 +97,23 @@
 
   label {
     display: block;
-    font-size: 0.8rem;
-    color: #475569;
+    font-size: 0.76rem;
+    color: #6b6259;
     margin-bottom: 0.4rem;
-    font-weight: 500;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 
   input,
   textarea,
   select {
     width: 100%;
-    background: #ffffff;
-    border: 1px solid #dbe2ea;
-    color: #0f172a;
+    background: rgba(255, 255, 255, 0.78);
+    border: 1px solid rgba(89, 73, 58, 0.12);
+    color: #241f1b;
     padding: 0.65rem 0.9rem;
-    border-radius: 12px;
+    border-radius: 16px;
     font-size: 0.9rem;
     outline: none;
     box-sizing: border-box;
@@ -120,12 +121,12 @@
     font-family: inherit;
 
     &:focus {
-      border-color: #f97316;
-      box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1);
+      border-color: #b85c38;
+      box-shadow: 0 0 0 4px rgba(184, 92, 56, 0.12);
     }
 
     &::placeholder {
-      color: #94a3b8;
+      color: #a19488;
     }
   }
 
@@ -137,7 +138,7 @@
 
 .char-count {
   font-size: 0.72rem;
-  color: #64748b;
+  color: #7c7268;
   display: block;
   text-align: right;
   margin-top: 0.25rem;
@@ -153,14 +154,14 @@
   background: none;
   border: none;
   font-size: 1.75rem;
-  color: #cbd5e1;
+  color: rgba(89, 73, 58, 0.22);
   cursor: pointer;
   padding: 0;
   line-height: 1;
   transition: color 0.1s, transform 0.1s;
 
   &.active {
-    color: #f59e0b;
+    color: #b85c38;
   }
 
   &:hover {
@@ -170,7 +171,7 @@
 
 .rating-label {
   font-size: 0.85rem;
-  color: #64748b;
+  color: #6b6259;
   margin-left: 0.5rem;
 }
 
@@ -239,9 +240,9 @@
 }
 
 .btn-cancel {
-  background: #fff;
-  border: 1px solid #cbd5e1;
-  color: #475569;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(89, 73, 58, 0.12);
+  color: #5f564d;
   padding: 0.65rem 1.2rem;
   border-radius: 999px;
   font-size: 0.9rem;
@@ -259,13 +260,13 @@
 }
 
 .btn-submit {
-  background: linear-gradient(135deg, #f97316, #fb7185);
+  background: linear-gradient(135deg, #bb6a44, #8e3f22);
   border: none;
   color: white;
   padding: 0.65rem 1.4rem;
   border-radius: 999px;
   font-size: 0.9rem;
-  font-weight: 600;
+  font-weight: 800;
   cursor: pointer;
   transition: opacity 0.2s;
 

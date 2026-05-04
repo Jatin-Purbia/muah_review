@@ -1,0 +1,33 @@
+:host {
+  display: block;
+  min-height: 100vh;
+}
+
+.app-shell {
+  position: relative;
+  min-height: 100vh;
+  isolation: isolate;
+}
+
+.ambient {
+  position: fixed;
+  width: 26rem;
+  height: 26rem;
+  border-radius: 50%;
+  filter: blur(18px);
+  opacity: 0.45;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.ambient-left {
+  top: -8rem;
+  left: -6rem;
+  background: radial-gradient(circle, rgba(208, 145, 104, 0.5) 0%, rgba(208, 145, 104, 0) 68%);
+}
+
+.ambient-right {
+  right: -7rem;
+  top: 12rem;
+  background: radial-gradient(circle, rgba(142, 63, 34, 0.22) 0%, rgba(142, 63, 34, 0) 70%);
+}

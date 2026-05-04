@@ -5,7 +5,7 @@
         <div class="logo-ring"><span class="logo-letter">R</span></div>
         <div>
           <h1 class="brand-title">
-            <span class="muah">Review </span> <span class="thin">Intelligence Hub</span>
+            <span class="muah">Review </span><span class="thin">Intelligence Hub</span>
           </h1>
           <p class="brand-sub">Moderation and seller performance dashboard.</p>
         </div>
@@ -17,7 +17,7 @@
           <span class="pill-lbl">Total Reviews</span>
         </div>
         <div class="header-pill gold">
-          <span class="pill-val">{{ averageRating | number:'1.1-1' }}<span class="star-sm">★</span></span>
+          <span class="pill-val">{{ averageRating | number:'1.1-1' }}<span class="star-sm">&#9733;</span></span>
           <span class="pill-lbl">Network Rating</span>
         </div>
         <div class="header-pill green">
@@ -51,13 +51,20 @@
         </div>
       </div>
 
-      <div class="portal-switch">
-        <button class="portal-btn" [class.active]="activePortal === 'super-admin'" (click)="setPortal('super-admin')">
-          Super Admin
-        </button>
-        <button class="portal-btn" [class.active]="activePortal === 'seller'" (click)="setPortal('seller')">
-          Seller Portal
-        </button>
+      <div class="hero-actions">
+        <div class="hero-note">
+          <span class="hero-note-label">Live mode</span>
+          <strong>{{ activePortal === 'super-admin' ? 'Operations console' : 'Seller lens' }}</strong>
+        </div>
+
+        <div class="portal-switch">
+          <button class="portal-btn" [class.active]="activePortal === 'super-admin'" (click)="setPortal('super-admin')">
+            Super Admin
+          </button>
+          <button class="portal-btn" [class.active]="activePortal === 'seller'" (click)="setPortal('seller')">
+            Seller Portal
+          </button>
+        </div>
       </div>
     </section>
 
@@ -197,7 +204,7 @@
                 <div class="queue-item" [class.warn]="review.pipelineStatus === 'manual-review'" [class.danger]="review.pipelineStatus === 'blocked'">
                   <div class="queue-main">
                     <strong>{{ review.productName }}</strong>
-                    <span>{{ review.sellerName }} · {{ review.reviewCategory }}</span>
+                    <span>{{ review.sellerName }} &middot; {{ review.reviewCategory }}</span>
                   </div>
                   <div class="queue-score">
                     <span class="status-tag" [class.warn]="review.pipelineStatus === 'manual-review'" [class.danger]="review.pipelineStatus === 'blocked'">
@@ -238,7 +245,7 @@
                 <span class="cat-name">{{ stat.category }}</span>
                 <span class="cat-count">{{ stat.reviewerCount }}</span>
                 @if (stat.rating) {
-                  <span class="cat-rating">{{ stat.rating | number:'1.1-1' }}★</span>
+                  <span class="cat-rating">{{ stat.rating | number:'1.1-1' }}&#9733;</span>
                 }
               </button>
             }
@@ -278,7 +285,7 @@
             <select class="filter-select" [(ngModel)]="selectedRating" (ngModelChange)="applyFilters()">
               <option [ngValue]="0">All Ratings</option>
               @for (star of [5,4,3,2,1]; track star) {
-                <option [ngValue]="star">{{ star }} ★</option>
+                <option [ngValue]="star">{{ star }} &#9733;</option>
               }
             </select>
             @if (searchQuery || selectedCategoryKey || selectedRating > 0) {
@@ -456,7 +463,7 @@
                       <strong>{{ item.category }}</strong>
                       <span>{{ item.mentions }} mentions</span>
                     </div>
-                    <div class="category-score">{{ item.rating | number:'1.1-1' }}★</div>
+                    <div class="category-score">{{ item.rating | number:'1.1-1' }}&#9733;</div>
                   </div>
                 }
               </div>
