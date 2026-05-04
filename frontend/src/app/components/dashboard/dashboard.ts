@@ -199,11 +199,34 @@ export class DashboardComponent implements OnInit {
   }
 
   get sellerCategoryPerformance(): { category: string; rating: number; mentions: number }[] {
-    return this.sellerAspects.map((aspect) => ({
-      category: aspect.aspect.replace(/_/g, ' ').charAt(0).toUpperCase() + aspect.aspect.slice(1),
-      rating: aspect.positive_mentions > 0 ? 4 : aspect.neutral_mentions > 0 ? 3 : 2,
-      mentions: aspect.positive_mentions + aspect.negative_mentions + aspect.neutral_mentions,
-    }));
+    // Group reviews by category and calculate average rating for each
+    const categoryMap = new Map<string, { ratings: number[]; count: number }>();
+    
+    for (const review of this.sellerReviews) {
+      const category = review.category ?? 'Products';
+      if (!categoryMap.has(category)) {
+        categoryMap.set(category, { ratings: [], count: 0 });
+      }
+      const data = categoryMap.get(category)!;
+      data.ratings.push(review.starRating);
+      data.count++;
+    }
+
+    const categories = ['Delivery', 'Service', 'Products', 'Returns', 'Website', 'Complaints'];
+    return categories
+      .map((category) => {
+        const data = categoryMap.get(category);
+        const avgRating = data && data.ratings.length > 0 
+          ? Math.round((data.ratings.reduce((a, b) => a + b, 0) / data.ratings.length) * 10) / 10
+          : 0;
+        const mentions = data?.count ?? 0;
+        return {
+          category,
+          rating: avgRating,
+          mentions,
+        };
+      })
+      .filter((item) => item.mentions > 0); // Only show categories with reviews
   }
 
   get sellerTrend(): { month: string; score: number }[] {

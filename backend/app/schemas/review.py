@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.models.enums import MediaType, ReviewStatus
+from app.models.enums import MediaType, ReviewStatus, ReviewCategory
 
 
 class ReviewMediaIn(BaseModel):
@@ -20,6 +20,7 @@ class ReviewCreateRequest(BaseModel):
     title: str = Field(min_length=1)
     description: str = Field(min_length=1)
     star_rating: int = Field(ge=1, le=5)
+    category: ReviewCategory
     media: list[ReviewMediaIn] = Field(default_factory=list)
 
 
@@ -31,6 +32,7 @@ class ReviewResponse(BaseModel):
     title: str
     description: str
     star_rating: int
+    category: ReviewCategory = ReviewCategory.PRODUCTS
     status: ReviewStatus
     is_published: bool
     created_at: datetime

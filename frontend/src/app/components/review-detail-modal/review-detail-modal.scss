@@ -82,13 +82,20 @@
 
 .seller-chip,
 .product-chip,
-.date-chip {
+.date-chip,
+.category-chip {
   background: #f1f5f9;
   color: #64748b;
   padding: 0.25rem 0.6rem;
   border-radius: 4px;
   font-size: 0.75rem;
   white-space: nowrap;
+}
+
+.category-chip {
+  font-weight: 600;
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .seller-chip {

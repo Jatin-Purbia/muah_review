@@ -95,6 +95,11 @@
   border-radius: 6px;
   white-space: nowrap;
 
+  &.category {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
   &.seller {
     background: #e0e7ff;
     color: #3730a3;

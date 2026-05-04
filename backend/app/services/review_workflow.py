@@ -39,6 +39,7 @@ class ReviewWorkflowService:
             title=payload.title,
             description=payload.description,
             star_rating=payload.star_rating,
+            category=payload.category,
             status=ReviewStatus.QUEUED,
         )
         self.repo.save_review(review)

@@ -30,6 +30,7 @@ export interface Review {
   title: string;
   description: string;
   starRating: number;
+  category?: string;
   media?: ReviewMedia[];
   helpfulCount: number;
   unHelpfulCount: number;
@@ -100,6 +101,7 @@ export interface CreateSiteReviewDto {
   title: string;
   description: string;
   starRating: number;
+  category: string;
   media?: { type: 'image' | 'video'; url: string }[];
 }
 

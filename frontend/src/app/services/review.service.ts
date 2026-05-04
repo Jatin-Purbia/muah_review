@@ -24,6 +24,7 @@ interface BackendReview {
   title: string;
   description: string;
   star_rating: number;
+  category?: string;
   status: string;
   is_published: boolean;
   created_at: string;
@@ -75,6 +76,7 @@ export class ReviewService {
       title: detail.title,
       description: detail.description,
       starRating: detail.star_rating,
+      category: detail.category ?? 'Products',
       helpfulCount: 0,
       unHelpfulCount: 0,
       isActive: detail.is_published,
@@ -178,6 +180,7 @@ export class ReviewService {
       title: dto.title,
       description: dto.description,
       star_rating: dto.starRating,
+      category: dto.category,
       media: (dto.media ?? []).map((item) => ({
         media_type: item.type,
         media_url: item.url,

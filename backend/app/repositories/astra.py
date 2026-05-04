@@ -76,12 +76,22 @@ class AstraRepository:
         return document
 
     def _hydrate_review(self, document: dict[str, Any]) -> Review:
-        return Review.model_validate(document["review"])
+        review_data = document["review"]
+        # Ensure category field exists for backward compatibility with old documents
+        if "category" not in review_data:
+            from app.models.enums import ReviewCategory
+            review_data["category"] = ReviewCategory.PRODUCTS.value
+        return Review.model_validate(review_data)
 
     def save_review(self, review: Review) -> Review:
         document = self._get_or_create_review_document(review)
         document["doc_type"] = "review"
-        document["review"] = review.model_dump(mode="json")
+        # Ensure category is always saved
+        review_data = review.model_dump(mode="json")
+        if "category" not in review_data or not review_data["category"]:
+            from app.models.enums import ReviewCategory
+            review_data["category"] = ReviewCategory.PRODUCTS.value
+        document["review"] = review_data
         self._save_review_document(document)
         return review
 

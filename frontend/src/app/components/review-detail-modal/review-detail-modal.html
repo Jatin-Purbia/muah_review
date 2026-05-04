@@ -6,6 +6,9 @@
         <button class="close-btn" (click)="onClose()">X</button>
       </div>
       <div class="review-meta">
+        @if (review.category) {
+          <span class="category-chip">{{ review.category }}</span>
+        }
         @if (review.sellerName) {
           <span class="seller-chip">{{ review.sellerName }}</span>
         }

@@ -16,6 +16,9 @@
   </div>
 
   <div class="metadata-section">
+    @if (review.category) {
+      <span class="chip category">{{ review.category }}</span>
+    }
     @if (review.sellerName) {
       <span class="chip seller">{{ review.sellerName }}</span>
     }

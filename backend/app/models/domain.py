@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from .enums import ActionType, MediaType, ReviewStatus
+from .enums import ActionType, MediaType, ReviewStatus, ReviewCategory
 
 
 def utc_now() -> datetime:
@@ -32,6 +32,7 @@ class Review(BaseModel):
     title: str
     description: str
     star_rating: int
+    category: ReviewCategory = ReviewCategory.PRODUCTS
     status: ReviewStatus = ReviewStatus.SUBMITTED
     is_published: bool = False
     created_at: datetime = Field(default_factory=utc_now)

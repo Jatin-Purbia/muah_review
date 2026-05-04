@@ -24,11 +24,21 @@ export class AddReviewModalComponent implements OnChanges {
     title: '',
     description: '',
     starRating: 0,
+    category: '',
     media: [],
   };
 
   formError = '';
   hoverRating = 0;
+
+  reviewCategories = [
+    { value: 'Delivery', label: 'Delivery' },
+    { value: 'Service', label: 'Service' },
+    { value: 'Products', label: 'Products' },
+    { value: 'Returns', label: 'Returns' },
+    { value: 'Website', label: 'Website' },
+    { value: 'Complaints', label: 'Complaints' },
+  ];
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['selectedProductId'] || changes['products']) {
@@ -47,6 +57,7 @@ export class AddReviewModalComponent implements OnChanges {
       this.form.sellerId.trim().length > 0 &&
       this.form.title.trim().length > 0 &&
       this.form.description.trim().length > 0 &&
+      this.form.category.trim().length > 0 &&
       this.form.starRating >= 1 &&
       this.form.starRating <= 5
     );

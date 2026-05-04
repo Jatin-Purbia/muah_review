@@ -29,6 +29,16 @@
       </div>
 
       <div class="field">
+        <label>Review Category *</label>
+        <select [(ngModel)]="form.category">
+          <option value="" disabled selected>Select a category...</option>
+          @for (category of reviewCategories; track category.value) {
+            <option [value]="category.value">{{ category.label }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="field">
         <label>Review Title *</label>
         <input
           type="text"

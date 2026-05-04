@@ -29,3 +29,12 @@ class ActionType(str, Enum):
     UNPUBLISHED = "unpublished"
     CONFIG_UPDATED = "config_updated"
     MANUAL_OVERRIDE = "manual_override"
+
+
+class ReviewCategory(str, Enum):
+    DELIVERY = "Delivery"
+    SERVICE = "Service"
+    PRODUCTS = "Products"
+    RETURNS = "Returns"
+    WEBSITE = "Website"
+    COMPLAINTS = "Complaints"
