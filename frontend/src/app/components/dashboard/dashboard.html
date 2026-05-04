@@ -229,14 +229,15 @@
         [categoryStats]="categoryStats"
       />
 
-      @if (categoryStats.length > 0) {
+      @if (categoryTabs.length > 0) {
         <div class="cat-scroll-wrap">
           <div class="cat-tabs">
             <button class="cat-tab" [class.active]="selectedCategoryKey === null" (click)="selectCategoryKey(null)">
               <span class="cat-name">All Reviews</span>
               <span class="cat-count">{{ reviews.length }}</span>
+              <span class="cat-rating">{{ averageRating | number:'1.1-1' }}&#9733;</span>
             </button>
-            @for (stat of categoryStats; track stat.id) {
+            @for (stat of categoryTabs; track stat.id) {
               <button
                 class="cat-tab"
                 [class.active]="selectedCategoryKey === (stat.category || '').toLowerCase()"
@@ -244,9 +245,7 @@
               >
                 <span class="cat-name">{{ stat.category }}</span>
                 <span class="cat-count">{{ stat.reviewerCount }}</span>
-                @if (stat.rating) {
-                  <span class="cat-rating">{{ stat.rating | number:'1.1-1' }}&#9733;</span>
-                }
+                <span class="cat-rating">{{ stat.rating | number:'1.1-1' }}&#9733;</span>
               </button>
             }
           </div>

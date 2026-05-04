@@ -28,6 +28,13 @@ interface PipelineMetric {
   tone: 'default' | 'good' | 'warn' | 'danger';
 }
 
+interface CategoryTabStat {
+  id: string;
+  category: string;
+  reviewerCount: number;
+  rating: number;
+}
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -36,6 +43,7 @@ interface PipelineMetric {
   styleUrls: ['./dashboard.scss'],
 })
 export class DashboardComponent implements OnInit {
+  readonly reviewCategories = ['Products', 'Delivery', 'Service', 'Returns', 'Website', 'Complaints'];
   products: ProductCatalogItem[] = [];
   reviews: Review[] = [];
   filteredReviews: Review[] = [];
@@ -176,6 +184,27 @@ export class DashboardComponent implements OnInit {
     return this.reviews
       .filter((review) => review.pipelineStatus === 'manual-review' || review.pipelineStatus === 'blocked')
       .sort((a, b) => (a.pipelineScore ?? 0) - (b.pipelineScore ?? 0));
+  }
+
+  get categoryTabs(): CategoryTabStat[] {
+    return this.reviewCategories.map((category, index) => {
+      const key = category.toLowerCase();
+      const reviewsForCategory = this.reviews.filter((review) => {
+        const reviewCategory = (review.category || review.reviewCategory || '').trim().toLowerCase();
+        return reviewCategory === key;
+      });
+      const reviewerCount = reviewsForCategory.length;
+      const rating = reviewerCount
+        ? reviewsForCategory.reduce((sum, review) => sum + (review.starRating ?? 0), 0) / reviewerCount
+        : 0;
+
+      return {
+        id: `fallback-${index}`,
+        category,
+        reviewerCount,
+        rating,
+      };
+    });
   }
 
   get sellerMoodBars(): { label: string; value: number; tone: string }[] {
@@ -371,6 +400,13 @@ export class DashboardComponent implements OnInit {
     if (this.selectedRating > 0) {
       const star = Number(this.selectedRating);
       result = result.filter((review) => review.starRating === star);
+    }
+
+    if (this.selectedCategoryKey) {
+      result = result.filter((review) => {
+        const reviewCategory = (review.category || review.reviewCategory || '').trim().toLowerCase();
+        return reviewCategory === this.selectedCategoryKey;
+      });
     }
 
     this.filteredReviews = result;
