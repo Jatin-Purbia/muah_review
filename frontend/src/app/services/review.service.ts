@@ -6,6 +6,7 @@ import {
   Review,
   CreateSiteReviewDto,
   ProductCatalogItem,
+  REVIEW_CATEGORIES,
   SiteReviewFilter,
   SiteReviewSearchResult,
   SiteCategoryReview,
@@ -163,13 +164,27 @@ export class ReviewService {
   }
 
   getStatistics(): Observable<SiteCategoryReview[]> {
-    const stats: SiteCategoryReview[] = [
-      { id: 1, category: 'Product Quality', reviewerCount: 12, rating: 4.2, reviewCount: 12 },
-      { id: 2, category: 'Delivery', reviewerCount: 8, rating: 4.5, reviewCount: 8 },
-      { id: 3, category: 'Service', reviewerCount: 6, rating: 4.1, reviewCount: 6 },
-    ];
+    return this.getReviews().pipe(
+      map((reviews) => REVIEW_CATEGORIES.map((category, index) => {
+        const normalizedCategory = category.toLowerCase();
+        const reviewsForCategory = reviews.filter((review) => {
+          const reviewCategory = (review.category || review.reviewCategory || '').trim().toLowerCase();
+          return reviewCategory === normalizedCategory;
+        });
+        const reviewCount = reviewsForCategory.length;
+        const rating = reviewCount
+          ? reviewsForCategory.reduce((sum, review) => sum + (review.starRating ?? 0), 0) / reviewCount
+          : 0;
 
-    return of(stats).pipe(delay(150));
+        return {
+          id: index + 1,
+          category,
+          reviewerCount: reviewCount,
+          reviewCount,
+          rating: Number(rating.toFixed(1)),
+        };
+      }))
+    );
   }
 
   create(dto: CreateSiteReviewDto): Observable<Review> {
@@ -235,6 +250,10 @@ export class ReviewService {
 
   bulkUnpublish(ids: string[]): Observable<{ id: string; isActive: boolean }[]> {
     return ids.length ? forkJoin(ids.map((id) => this.unpublish(id))) : of([]);
+  }
+
+  bulkBlock(ids: string[]): Observable<Review[]> {
+    return ids.length ? forkJoin(ids.map((id) => this.reject(id))) : of([]);
   }
 
   delete(id: string): Observable<unknown> {

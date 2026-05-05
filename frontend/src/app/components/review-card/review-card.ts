@@ -13,6 +13,7 @@ export class ReviewCardComponent {
   @Input() review!: Review;
   @Input() selected = false;
   @Input() processing = false;
+  @Input() selectable = true;
   @Output() togglePublish = new EventEmitter<{ review: Review; published: boolean }>();
   @Output() blocked = new EventEmitter<Review>();
   @Output() deleted = new EventEmitter<Review>();
@@ -92,6 +93,10 @@ export class ReviewCardComponent {
   onDelete(): void {
     this.deleted.emit(this.review);
     this.confirmDelete = false;
+  }
+
+  onSelectionToggle(): void {
+    this.selectionChange.emit(!this.selected);
   }
 
   onBlock(): void {

@@ -129,6 +129,15 @@ export interface SiteCategoryReview {
   reviewCategory?: string;
 }
 
+export const REVIEW_CATEGORIES = [
+  'Products',
+  'Delivery',
+  'Service',
+  'Returns',
+  'Website',
+  'Complaints',
+] as const;
+
 // Product review models
 
 export interface ProductReview {

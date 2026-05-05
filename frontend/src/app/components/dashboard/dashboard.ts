@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReviewService } from '../../services/review.service';
 import { AnalyticsService, SellerAnalyticsSummary, SellerTrendPoint, SellerAspectInsight } from '../../services/analytics.service';
-import { Review, CreateSiteReviewDto, ProductCatalogItem, PublishFilter, SiteCategoryReview, PipelineStatus } from '../../models/review.model';
+import { Review, CreateSiteReviewDto, ProductCatalogItem, PublishFilter, SiteCategoryReview, PipelineStatus, REVIEW_CATEGORIES } from '../../models/review.model';
 import { ReviewCardComponent } from '../review-card/review-card';
 import { StatsBarComponent } from '../stats-bar/stats-bar';
 import { AddReviewModalComponent } from '../add-review-modal/add-review-modal';
 import { ReviewDetailModalComponent } from '../review-detail-modal/review-detail-modal';
 
 type PortalView = 'super-admin' | 'seller';
+type BulkAction = 'publish' | 'unpublish' | 'block' | 'delete' | null;
 
 interface SellerSummary {
   id: string;
@@ -43,7 +44,7 @@ interface CategoryTabStat {
   styleUrls: ['./dashboard.scss'],
 })
 export class DashboardComponent implements OnInit, OnDestroy {
-  readonly reviewCategories = ['Products', 'Delivery', 'Service', 'Returns', 'Website', 'Complaints'];
+  readonly reviewCategories = [...REVIEW_CATEGORIES];
   products: ProductCatalogItem[] = [];
   reviews: Review[] = [];
   filteredReviews: Review[] = [];
@@ -70,6 +71,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   selectedIds = new Set<string>();
   bulkLoading = false;
+  activeBulkAction: BulkAction = null;
   selectedReviewForDetail: Review | null = null;
 
   activePortal: PortalView = 'super-admin';
@@ -243,8 +245,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       data.count++;
     }
 
-    const categories = ['Delivery', 'Service', 'Products', 'Returns', 'Website', 'Complaints'];
-    return categories
+    return this.reviewCategories
       .map((category) => {
         const data = categoryMap.get(category);
         const avgRating = data && data.ratings.length > 0 
@@ -520,20 +521,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   clearSelection(): void {
     this.selectedIds.clear();
+    this.activeBulkAction = null;
   }
 
   onBulkPublish(): void {
     const ids = this.selectedIdsArray;
     this.bulkLoading = true;
+    this.activeBulkAction = 'publish';
     this.reviewService.bulkPublish(ids).subscribe({
       next: () => {
         this.selectedIds.clear();
         this.loadReviews();
         this.bulkLoading = false;
+        this.activeBulkAction = null;
         this.showToast(`${ids.length} review(s) published.`, 'success');
       },
       error: () => {
         this.bulkLoading = false;
+        this.activeBulkAction = null;
         this.showToast('Bulk publish failed.', 'error');
       },
     });
@@ -542,15 +547,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
   onBulkUnpublish(): void {
     const ids = this.selectedIdsArray;
     this.bulkLoading = true;
+    this.activeBulkAction = 'unpublish';
     this.reviewService.bulkUnpublish(ids).subscribe({
       next: () => {
         this.selectedIds.clear();
         this.loadReviews();
         this.bulkLoading = false;
+        this.activeBulkAction = null;
         this.showToast(`${ids.length} review(s) moved to moderation.`, 'success');
       },
       error: () => {
         this.bulkLoading = false;
+        this.activeBulkAction = null;
         this.showToast('Bulk unpublish failed.', 'error');
       },
     });
@@ -559,16 +567,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
   onBulkDelete(): void {
     const ids = this.selectedIdsArray;
     this.bulkLoading = true;
+    this.activeBulkAction = 'delete';
     this.reviewService.bulkDelete(ids).subscribe({
       next: () => {
         this.reviews = this.reviews.filter((review) => !ids.includes(review.id));
         this.selectedIds.clear();
         this.applyFilters();
         this.bulkLoading = false;
+        this.activeBulkAction = null;
         this.showToast(`${ids.length} review(s) deleted.`, 'success');
       },
       error: () => {
         this.bulkLoading = false;
+        this.activeBulkAction = null;
         this.showToast('Bulk delete failed.', 'error');
       },
     });
@@ -734,6 +745,39 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
         this.processingReviewIds.delete(reviewId);
         this.clearProcessingPoll(reviewId);
+      },
+    });
+  }
+
+  onBulkBlock(): void {
+    const ids = this.selectedIdsArray;
+    this.bulkLoading = true;
+    this.activeBulkAction = 'block';
+    this.reviewService.bulkBlock(ids).subscribe({
+      next: (blockedReviews) => {
+        const blockedIds = new Set(blockedReviews.map((review) => review.id));
+        this.reviews = this.reviews.map((review) => {
+          const blockedReview = blockedReviews.find((item) => item.id === review.id);
+          return blockedReview
+            ? {
+                ...review,
+                ...blockedReview,
+                isActive: false,
+                pipelineStatus: 'blocked',
+              }
+            : review;
+        });
+        this.selectedIds.clear();
+        this.applyFilters();
+        this.loadSellerAnalytics();
+        this.bulkLoading = false;
+        this.activeBulkAction = null;
+        this.showToast(`${blockedIds.size} review(s) blocked.`, 'success');
+      },
+      error: () => {
+        this.bulkLoading = false;
+        this.activeBulkAction = null;
+        this.showToast('Bulk block failed.', 'error');
       },
     });
   }

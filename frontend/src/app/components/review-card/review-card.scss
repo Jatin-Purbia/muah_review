@@ -24,6 +24,11 @@
   &.unpublished {
     border-top: 4px solid #b26a1f;
   }
+
+  &.selected {
+    border-color: rgba(184, 92, 56, 0.34);
+    box-shadow: 0 0 0 3px rgba(184, 92, 56, 0.12), 0 28px 60px rgba(55, 40, 27, 0.14);
+  }
 }
 
 .card-header {
@@ -40,6 +45,47 @@
   align-items: center;
   gap: 0.85rem;
   flex-wrap: wrap;
+}
+
+.card-select {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+
+  input[type='checkbox'] {
+    display: none;
+  }
+}
+
+.card-select-indicator {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  border: 2px solid rgba(89, 73, 58, 0.24);
+  background: rgba(255, 255, 255, 0.8);
+  transition: background 0.15s ease, border-color 0.15s ease;
+
+  &::after {
+    content: '';
+    width: 5px;
+    height: 9px;
+    border: 2px solid transparent;
+    border-top: none;
+    border-left: none;
+    transform: rotate(45deg) translateY(-1px);
+  }
+}
+
+.card-select input:checked + .card-select-indicator {
+  background: #b85c38;
+  border-color: #b85c38;
+
+  &::after {
+    border-color: #fff;
+  }
 }
 
 .header-right {

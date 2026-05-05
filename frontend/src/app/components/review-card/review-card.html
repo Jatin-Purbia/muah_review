@@ -1,6 +1,13 @@
-<div class="card" [class.unpublished]="!review.isActive" [class.published]="review.isActive" (click)="onCardClick($event)">
+<div class="card" [class.unpublished]="!review.isActive" [class.published]="review.isActive" [class.selected]="selected" (click)="onCardClick($event)">
   <div class="card-header">
     <div class="header-left">
+      @if (selectable) {
+        <label class="card-select" (click)="$event.stopPropagation()">
+          <input type="checkbox" [checked]="selected" (change)="onSelectionToggle()" />
+          <span class="card-select-indicator"></span>
+        </label>
+      }
+
       <span class="status-badge" [class.published]="review.isActive" [class.draft]="!review.isActive">
         {{ review.isActive ? 'Published' : statusLabel }}
       </span>

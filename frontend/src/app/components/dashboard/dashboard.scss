@@ -648,6 +648,10 @@
   margin-top: 1.2rem;
 }
 
+.pipeline-layout.queue-only {
+  grid-template-columns: 1fr;
+}
+
 .pipeline-card,
 .queue-card,
 .analysis-card {
@@ -666,6 +670,14 @@
     font-size: 1.1rem;
     line-height: 1.1;
   }
+}
+
+.queue-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .threshold-pill,
@@ -1090,12 +1102,27 @@
 }
 
 .bulk-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
   padding: 0.45rem 0.88rem;
   border: 0;
   border-radius: 999px;
   font-size: 0.78rem;
   font-weight: 800;
   cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
+
+  &.loading {
+    background: #cbd5e1;
+    color: #475569;
+    filter: saturate(0);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+  }
 
   &.btn-publish {
     background: #2f7d58;
@@ -1112,10 +1139,30 @@
     color: #fff;
   }
 
+  &.btn-block {
+    background: #7f1d1d;
+    color: #fff;
+  }
+
   &.btn-cancel {
     background: rgba(255, 255, 255, 0.72);
     border: 1px solid var(--line);
     color: var(--text-soft);
+  }
+}
+
+.bulk-btn-loader {
+  width: 0.82rem;
+  height: 0.82rem;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: bulk-spin 0.75s linear infinite;
+}
+
+@keyframes bulk-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 

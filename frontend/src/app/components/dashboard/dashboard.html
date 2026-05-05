@@ -155,48 +155,17 @@
           </button>
         </div>
 
-        <div class="pipeline-layout">
-          <article class="pipeline-card">
-            <div class="pipeline-header">
-              <div>
-                <span class="section-kicker">Workflow</span>
-                <h4>Moderation pipeline</h4>
-              </div>
-              <div class="threshold-pill">Score threshold {{ automationThreshold }}</div>
-            </div>
-
-            <div class="pipeline-steps">
-              <div class="pipeline-step">
-                <span class="step-index">1</span>
-                <div>
-                  <strong>Review intake</strong>
-                  <p>New submissions are queued automatically.</p>
-                </div>
-              </div>
-              <div class="pipeline-step">
-                <span class="step-index">2</span>
-                <div>
-                  <strong>Automated analysis</strong>
-                  <p>Content and sentiment are evaluated.</p>
-                </div>
-              </div>
-              <div class="pipeline-step">
-                <span class="step-index">3</span>
-                <div>
-                  <strong>Decision and override</strong>
-                  <p>Publish automatically or route for manual review.</p>
-                </div>
-              </div>
-            </div>
-          </article>
-
+        <div class="pipeline-layout queue-only">
           <article class="queue-card">
             <div class="pipeline-header">
               <div>
                 <span class="section-kicker">Queue</span>
                 <h4>Priority queue</h4>
               </div>
-              <div class="threshold-pill subtle">{{ pendingPipelineReviews.length }} items</div>
+              <div class="queue-header-meta">
+                <div class="threshold-pill">Score threshold {{ automationThreshold }}</div>
+                <div class="threshold-pill subtle">{{ pendingPipelineReviews.length }} items</div>
+              </div>
             </div>
 
             <div class="queue-list">
@@ -298,16 +267,39 @@
           <div class="bulk-bar">
             <span class="bulk-count">{{ selectedCount }} selected</span>
             <div class="bulk-actions">
-              <button class="bulk-btn btn-publish" (click)="onBulkPublish()" [disabled]="bulkLoading">
-                {{ bulkLoading ? '...' : 'Publish' }}
+              <button class="bulk-btn btn-publish" [class.loading]="bulkLoading && activeBulkAction === 'publish'" (click)="onBulkPublish()" [disabled]="bulkLoading">
+                @if (bulkLoading && activeBulkAction === 'publish') {
+                  <span class="bulk-btn-loader" aria-hidden="true"></span>
+                  <span>Publishing...</span>
+                } @else {
+                  <span>Publish</span>
+                }
               </button>
-              <button class="bulk-btn btn-unpublish" (click)="onBulkUnpublish()" [disabled]="bulkLoading">
-                {{ bulkLoading ? '...' : 'Move to moderation' }}
+              <button class="bulk-btn btn-unpublish" [class.loading]="bulkLoading && activeBulkAction === 'unpublish'" (click)="onBulkUnpublish()" [disabled]="bulkLoading">
+                @if (bulkLoading && activeBulkAction === 'unpublish') {
+                  <span class="bulk-btn-loader" aria-hidden="true"></span>
+                  <span>Updating...</span>
+                } @else {
+                  <span>Move to moderation</span>
+                }
               </button>
-              <button class="bulk-btn btn-delete" (click)="onBulkDelete()" [disabled]="bulkLoading">
-                {{ bulkLoading ? '...' : 'Delete' }}
+              <button class="bulk-btn btn-block" [class.loading]="bulkLoading && activeBulkAction === 'block'" (click)="onBulkBlock()" [disabled]="bulkLoading">
+                @if (bulkLoading && activeBulkAction === 'block') {
+                  <span class="bulk-btn-loader" aria-hidden="true"></span>
+                  <span>Blocking...</span>
+                } @else {
+                  <span>Block</span>
+                }
               </button>
-              <button class="bulk-btn btn-cancel" (click)="clearSelection()">Cancel</button>
+              <button class="bulk-btn btn-delete" [class.loading]="bulkLoading && activeBulkAction === 'delete'" (click)="onBulkDelete()" [disabled]="bulkLoading">
+                @if (bulkLoading && activeBulkAction === 'delete') {
+                  <span class="bulk-btn-loader" aria-hidden="true"></span>
+                  <span>Deleting...</span>
+                } @else {
+                  <span>Delete</span>
+                }
+              </button>
+              <button class="bulk-btn btn-cancel" (click)="clearSelection()" [disabled]="bulkLoading">Cancel</button>
             </div>
           </div>
         }
@@ -338,6 +330,7 @@
                   [review]="review"
                   [selected]="isSelected(review.id)"
                   [processing]="isProcessingReview(review.id)"
+                  [selectable]="true"
                   (selectionChange)="toggleSelectOne(review.id)"
                   (togglePublish)="onTogglePublish($event)"
                   (blocked)="onBlockReview($event)"
@@ -519,6 +512,7 @@
                   [review]="review"
                   [selected]="false"
                   [processing]="isProcessingReview(review.id)"
+                  [selectable]="false"
                   (togglePublish)="onTogglePublish($event)"
                   (blocked)="onBlockReview($event)"
                   (deleted)="onDelete($event)"

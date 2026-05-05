@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { CreateSiteReviewDto, ProductCatalogItem } from '../../models/review.model';
+import { CreateSiteReviewDto, ProductCatalogItem, REVIEW_CATEGORIES } from '../../models/review.model';
 
 @Component({
   selector: 'app-add-review-modal',
@@ -31,14 +31,10 @@ export class AddReviewModalComponent implements OnChanges {
   formError = '';
   hoverRating = 0;
 
-  reviewCategories = [
-    { value: 'Delivery', label: 'Delivery' },
-    { value: 'Service', label: 'Service' },
-    { value: 'Products', label: 'Products' },
-    { value: 'Returns', label: 'Returns' },
-    { value: 'Website', label: 'Website' },
-    { value: 'Complaints', label: 'Complaints' },
-  ];
+  reviewCategories = REVIEW_CATEGORIES.map((category) => ({
+    value: category,
+    label: category,
+  }));
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['selectedProductId'] || changes['products']) {
