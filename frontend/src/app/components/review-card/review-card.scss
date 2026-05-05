@@ -7,7 +7,7 @@
   transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease;
   display: flex;
   flex-direction: column;
-  min-height: 480px;
+  min-height: 420px;
   cursor: pointer;
   backdrop-filter: blur(10px);
 
@@ -121,6 +121,26 @@
   background: rgba(184, 92, 56, 0.1);
   color: #8e3f22;
   border-radius: 999px;
+
+  &.seller-note {
+    background: rgba(89, 73, 58, 0.08);
+    color: #51473f;
+  }
+
+  &.good {
+    background: rgba(47, 125, 88, 0.12);
+    color: #22563e;
+  }
+
+  &.warn {
+    background: rgba(178, 106, 31, 0.12);
+    color: #8b5418;
+  }
+
+  &.danger {
+    background: rgba(178, 70, 63, 0.12);
+    color: #8b2f2b;
+  }
 }
 
 .date-text {
@@ -283,6 +303,21 @@
   word-break: break-word;
 }
 
+.simple-note {
+  margin: 0 0 0.8rem;
+  color: #6d6258;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.simple-takeaway {
+  margin: 0 0 0.9rem;
+  color: #3f372f;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 .description-wrap {
   position: relative;
 }
@@ -325,10 +360,11 @@
   background: rgba(249, 244, 237, 0.56);
   display: flex;
   gap: 0.65rem;
+  flex-wrap: wrap;
 }
 
 .action-btn {
-  flex: 1;
+  flex: 1 1 140px;
   padding: 0.68rem 0.8rem;
   font-size: 0.78rem;
   font-weight: 800;

@@ -981,6 +981,17 @@
   margin-bottom: 1.35rem;
 }
 
+.simple-heading {
+  display: grid;
+  gap: 0.28rem;
+
+  p {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 0.9rem;
+  }
+}
+
 .tabs {
   display: flex;
   flex-wrap: wrap;
@@ -1045,6 +1056,7 @@
   align-items: center;
   gap: 0.8rem;
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .search-input,
@@ -1057,7 +1069,7 @@
 }
 
 .search-input {
-  width: min(100%, 320px);
+  width: min(100%, 280px);
   padding: 0.62rem 0.95rem;
 }
 
@@ -1321,6 +1333,10 @@
 
   .header-pill {
     flex: 1 1 140px;
+  }
+
+  .filters-inline {
+    justify-content: flex-start;
   }
 }
 

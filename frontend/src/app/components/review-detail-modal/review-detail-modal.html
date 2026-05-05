@@ -57,15 +57,17 @@
 
       <div class="stats-section">
         <div class="stat">
-          <span class="stat-label">Pipeline Score</span>
-          <span class="stat-value">{{ pipelineDisplay }}</span>
+          <span class="stat-label">Customer Tone</span>
+          <span class="stat-value">{{ customerToneLabel }}</span>
         </div>
-        @if (review.sentimentScore !== undefined) {
-          <div class="stat">
-            <span class="stat-label">Sentiment Score</span>
-            <span class="stat-value">{{ review.sentimentScore }}</span>
-          </div>
-        }
+        <div class="stat">
+          <span class="stat-label">Main Theme</span>
+          <span class="stat-value">{{ reviewSummaryTitle }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Seller Action</span>
+          <span class="stat-value stat-value-small">{{ sellerActionHint }}</span>
+        </div>
       </div>
     </div>
 

@@ -223,22 +223,23 @@
 
       <section class="section">
         <div class="section-heading">
-          <div>
+          <div class="simple-heading">
             <span class="section-kicker">Reviews</span>
-            <h3>Moderation desk</h3>
+            <h3>Manage reviews</h3>
+            <p>Keep this list focused on what needs a quick decision.</p>
           </div>
         </div>
 
         <div class="section-bar">
           <div class="tabs">
-            <button class="tab" [class.active]="publishFilter === 'all'" (click)="setPublishFilter('all')">
-              All <span class="tab-count">{{ reviews.length }}</span>
+            <button class="tab tab-unpublished" [class.active]="publishFilter === 'unpublished'" (click)="setPublishFilter('unpublished')">
+              Needs action <span class="tab-count">{{ needsActionCount }}</span>
             </button>
             <button class="tab tab-published" [class.active]="publishFilter === 'published'" (click)="setPublishFilter('published')">
-              Published <span class="tab-count">{{ publishedCount }}</span>
+              Live <span class="tab-count">{{ publishedCount }}</span>
             </button>
-            <button class="tab tab-unpublished" [class.active]="publishFilter === 'unpublished'" (click)="setPublishFilter('unpublished')">
-              In moderation <span class="tab-count">{{ unpublishedCount }}</span>
+            <button class="tab" [class.active]="publishFilter === 'all'" (click)="setPublishFilter('all')">
+              All reviews <span class="tab-count">{{ reviews.length }}</span>
             </button>
           </div>
 
@@ -246,12 +247,12 @@
             <input
               class="search-input"
               type="text"
-              placeholder="Search seller, product, or customer"
+              placeholder="Search product or customer"
               [(ngModel)]="searchQuery"
               (ngModelChange)="applyFilters()"
             />
             <select class="filter-select" [(ngModel)]="selectedRating" (ngModelChange)="applyFilters()">
-              <option [ngValue]="0">All Ratings</option>
+              <option [ngValue]="0">Any rating</option>
               @for (star of [5,4,3,2,1]; track star) {
                 <option [ngValue]="star">{{ star }} &#9733;</option>
               }
@@ -259,7 +260,7 @@
             @if (searchQuery || selectedCategoryKey || selectedRating > 0) {
               <button class="btn-clear" (click)="clearFilters()">Clear</button>
             }
-            <span class="result-count">{{ filteredReviews.length }} / {{ reviews.length }}</span>
+            <span class="result-count">{{ filteredReviews.length }} reviews</span>
           </div>
         </div>
 
@@ -272,7 +273,7 @@
                   <span class="bulk-btn-loader" aria-hidden="true"></span>
                   <span>Publishing...</span>
                 } @else {
-                  <span>Publish</span>
+                  <span>Publish selected</span>
                 }
               </button>
               <button class="bulk-btn btn-unpublish" [class.loading]="bulkLoading && activeBulkAction === 'unpublish'" (click)="onBulkUnpublish()" [disabled]="bulkLoading">
@@ -280,26 +281,10 @@
                   <span class="bulk-btn-loader" aria-hidden="true"></span>
                   <span>Updating...</span>
                 } @else {
-                  <span>Move to moderation</span>
+                  <span>Hide selected</span>
                 }
               </button>
-              <button class="bulk-btn btn-block" [class.loading]="bulkLoading && activeBulkAction === 'block'" (click)="onBulkBlock()" [disabled]="bulkLoading">
-                @if (bulkLoading && activeBulkAction === 'block') {
-                  <span class="bulk-btn-loader" aria-hidden="true"></span>
-                  <span>Blocking...</span>
-                } @else {
-                  <span>Block</span>
-                }
-              </button>
-              <button class="bulk-btn btn-delete" [class.loading]="bulkLoading && activeBulkAction === 'delete'" (click)="onBulkDelete()" [disabled]="bulkLoading">
-                @if (bulkLoading && activeBulkAction === 'delete') {
-                  <span class="bulk-btn-loader" aria-hidden="true"></span>
-                  <span>Deleting...</span>
-                } @else {
-                  <span>Delete</span>
-                }
-              </button>
-              <button class="bulk-btn btn-cancel" (click)="clearSelection()" [disabled]="bulkLoading">Cancel</button>
+              <button class="bulk-btn btn-cancel" (click)="clearSelection()" [disabled]="bulkLoading">Clear selection</button>
             </div>
           </div>
         }
@@ -323,7 +308,7 @@
                   <input type="checkbox" [checked]="allSelected" (change)="toggleSelectAll()" />
                   <span class="check-indicator"></span>
                 </label>
-                <span class="select-all-label">{{ allSelected ? 'Deselect all' : 'Select all' }}</span>
+                <span class="select-all-label">{{ allSelected ? 'Deselect all' : 'Select all on this page' }}</span>
               </div>
               @for (review of filteredReviews; track review.id) {
                 <app-review-card
@@ -331,6 +316,7 @@
                   [selected]="isSelected(review.id)"
                   [processing]="isProcessingReview(review.id)"
                   [selectable]="true"
+                  managementMode="simple"
                   (selectionChange)="toggleSelectOne(review.id)"
                   (togglePublish)="onTogglePublish($event)"
                   (blocked)="onBlockReview($event)"
@@ -340,13 +326,13 @@
               }
             </div>
           } @else {
-            <div class="empty-state">
-              <div class="empty-icon">Reviews</div>
-              <h3>No reviews found</h3>
-              <p>Try adjusting your filters or create the first review.</p>
-            </div>
+              <div class="empty-state">
+                <div class="empty-icon">Reviews</div>
+                <h3>No reviews found</h3>
+                <p>Try a different filter or search to find the review you want to manage.</p>
+              </div>
+            }
           }
-        }
       </section>
     } @else {
       <section class="section">
@@ -513,6 +499,7 @@
                   [selected]="false"
                   [processing]="isProcessingReview(review.id)"
                   [selectable]="false"
+                  managementMode="simple"
                   (togglePublish)="onTogglePublish($event)"
                   (blocked)="onBlockReview($event)"
                   (deleted)="onDelete($event)"

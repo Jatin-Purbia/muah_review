@@ -32,16 +32,34 @@ export class ReviewDetailModalComponent {
     return Array(5).fill('').map((_, index) => (index < rating ? '*' : 'o'));
   }
 
-  get pipelineDisplay(): string {
-    return this.review.pipelineScore !== undefined
-      ? `${this.review.pipelineScore}`
-      : this.review.pipelineStatus === 'approved'
-        ? 'Approved'
-        : this.review.pipelineStatus === 'manual-review'
-          ? 'Manual Review'
-          : this.review.pipelineStatus === 'blocked'
-            ? 'Blocked'
-            : 'Pending';
+  get customerTone(): 'positive' | 'mixed' | 'negative' | 'neutral' {
+    const negativeCount = (this.review.segments ?? []).filter((segment) => segment.sentiment === 'negative').length;
+    const positiveCount = (this.review.segments ?? []).filter((segment) => segment.sentiment === 'positive').length;
+    const rating = this.review.starRating ?? 0;
+
+    if (negativeCount > positiveCount || rating <= 2) {
+      return 'negative';
+    }
+
+    if (positiveCount > 0 && negativeCount > 0) {
+      return 'mixed';
+    }
+
+    if (positiveCount > 0 || rating >= 4) {
+      return 'positive';
+    }
+
+    return 'neutral';
+  }
+
+  get customerToneLabel(): string {
+    return this.customerTone === 'positive'
+      ? 'Positive'
+      : this.customerTone === 'mixed'
+        ? 'Mixed'
+        : this.customerTone === 'negative'
+          ? 'Negative'
+          : 'Neutral';
   }
 
   get statusLabel(): string {
@@ -61,13 +79,45 @@ export class ReviewDetailModalComponent {
   }
 
   get categoryReasonTitle(): string {
-    return this.review.pipelineStatus === 'approved'
-      ? 'Why it was approved'
-      : this.review.pipelineStatus === 'manual-review'
-        ? 'Why it needs manual review'
-        : this.review.pipelineStatus === 'blocked'
-          ? 'Why it was blocked'
-          : 'Pipeline signals';
+    return this.review.isActive
+      ? 'What customers are saying'
+      : this.review.pipelineStatus === 'blocked'
+        ? 'Why this review may need a closer look'
+        : 'What this review is mainly about';
+  }
+
+  get reviewSummaryTitle(): string {
+    const topSegment = (this.review.segments ?? [])[0]?.segment?.trim();
+
+    if (topSegment) {
+      return topSegment;
+    }
+
+    if ((this.review.starRating ?? 0) >= 4) {
+      return 'Positive product experience';
+    }
+
+    if ((this.review.starRating ?? 0) <= 2) {
+      return 'Customer concern';
+    }
+
+    return 'General customer feedback';
+  }
+
+  get sellerActionHint(): string {
+    if (this.review.isActive) {
+      return 'Keep live if this reflects a fair customer experience.';
+    }
+
+    if (this.review.pipelineStatus === 'blocked') {
+      return 'Read it carefully and decide if it should stay hidden or be addressed first.';
+    }
+
+    if (this.review.pipelineStatus === 'manual-review') {
+      return 'Check the wording and publish if it feels fair and relevant.';
+    }
+
+    return 'Use your judgment after reading the full review.';
   }
 
   get highlightedKeywords(): { label: string; tone: 'good' | 'warn' | 'danger' }[] {

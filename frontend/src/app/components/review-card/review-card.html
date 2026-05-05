@@ -12,7 +12,11 @@
         {{ review.isActive ? 'Published' : statusLabel }}
       </span>
 
-      <span class="score-badge">Pipeline: {{ pipelineDisplay }}</span>
+      @if (isSimpleMode) {
+        <span class="score-badge seller-note" [class.good]="customerTone === 'positive'" [class.warn]="customerTone === 'mixed' || customerTone === 'neutral'" [class.danger]="customerTone === 'negative'">
+          {{ customerToneLabel }}
+        </span>
+      }
     </div>
 
     <div class="header-right">
@@ -26,7 +30,7 @@
     @if (review.category) {
       <span class="chip category">{{ review.category }}</span>
     }
-    @if (review.sellerName) {
+    @if (review.sellerName && !isSimpleMode) {
       <span class="chip seller">{{ review.sellerName }}</span>
     }
     @if (review.productName) {
@@ -57,6 +61,10 @@
 
   <div class="content-section">
     <h3 class="title">{{ review.title }}</h3>
+    @if (isSimpleMode) {
+      <p class="simple-note">{{ simpleStatusNote }}</p>
+      <p class="simple-takeaway">{{ keyReviewTakeaway }}</p>
+    }
 
     <div class="description-wrap">
       <p class="description" [class.expanded]="expanded">{{ review.description }}</p>
@@ -75,7 +83,7 @@
         (click)="viewDetails.emit(review); $event.stopPropagation()"
         title="View full details"
       >
-        View Details
+        Review details
       </button>
 
       <button
@@ -86,29 +94,31 @@
         (click)="confirmPublish = true; $event.stopPropagation()"
         [title]="review.isActive ? 'Move to moderation' : 'Publish review'"
       >
-        {{ review.isActive ? 'Unpublish' : 'Publish' }}
+        {{ review.isActive ? 'Hide for now' : 'Publish review' }}
       </button>
 
-      <button
-        class="action-btn block"
-        title="Block review"
-        [disabled]="processing || review.pipelineStatus === 'blocked'"
-        (click)="confirmBlock = true; $event.stopPropagation()"
-      >
-        Block
-      </button>
+      @if (!isSimpleMode) {
+        <button
+          class="action-btn block"
+          title="Block review"
+          [disabled]="processing || review.pipelineStatus === 'blocked'"
+          (click)="confirmBlock = true; $event.stopPropagation()"
+        >
+          Block
+        </button>
 
-      <button
-        class="action-btn delete"
-        title="Delete review"
-        [disabled]="processing"
-        (click)="confirmDelete = true; $event.stopPropagation()"
-      >
-        Delete
-      </button>
+        <button
+          class="action-btn delete"
+          title="Delete review"
+          [disabled]="processing"
+          (click)="confirmDelete = true; $event.stopPropagation()"
+        >
+          Delete
+        </button>
+      }
     } @else if (confirmPublish) {
       <div class="confirm-prompt">
-        <span class="prompt-message">{{ review.isActive ? 'Move this review to moderation?' : 'Publish this review?' }}</span>
+        <span class="prompt-message">{{ review.isActive ? 'Hide this review from your store for now?' : 'Publish this review to your store?' }}</span>
         <div class="confirm-actions">
           <button class="confirm-btn yes" (click)="onToggle(); $event.stopPropagation()">Confirm</button>
           <button class="confirm-btn no" (click)="confirmPublish = false; $event.stopPropagation()">Cancel</button>

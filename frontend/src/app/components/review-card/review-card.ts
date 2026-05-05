@@ -14,6 +14,7 @@ export class ReviewCardComponent {
   @Input() selected = false;
   @Input() processing = false;
   @Input() selectable = true;
+  @Input() managementMode: 'full' | 'simple' = 'full';
   @Output() togglePublish = new EventEmitter<{ review: Review; published: boolean }>();
   @Output() blocked = new EventEmitter<Review>();
   @Output() deleted = new EventEmitter<Review>();
@@ -47,16 +48,56 @@ export class ReviewCardComponent {
     return (this.review.description || '').length > 300;
   }
 
-  get pipelineDisplay(): string {
-    return this.review.pipelineScore !== undefined
-      ? `${this.review.pipelineScore}`
-      : this.review.pipelineStatus === 'approved'
-        ? 'Approved'
-        : this.review.pipelineStatus === 'manual-review'
-          ? 'Manual Review'
-          : this.review.pipelineStatus === 'blocked'
-            ? 'Blocked'
-            : 'Pending';
+  get isSimpleMode(): boolean {
+    return this.managementMode === 'simple';
+  }
+
+  get customerTone(): 'positive' | 'mixed' | 'negative' | 'neutral' {
+    const negativeCount = (this.review.segments ?? []).filter((segment) => segment.sentiment === 'negative').length;
+    const positiveCount = (this.review.segments ?? []).filter((segment) => segment.sentiment === 'positive').length;
+    const rating = this.review.starRating ?? 0;
+
+    if (negativeCount > positiveCount || rating <= 2) {
+      return 'negative';
+    }
+
+    if (positiveCount > 0 && negativeCount > 0) {
+      return 'mixed';
+    }
+
+    if (positiveCount > 0 || rating >= 4) {
+      return 'positive';
+    }
+
+    return 'neutral';
+  }
+
+  get customerToneLabel(): string {
+    return this.customerTone === 'positive'
+      ? 'Customer feels positive'
+      : this.customerTone === 'mixed'
+        ? 'Customer has mixed feedback'
+        : this.customerTone === 'negative'
+          ? 'Customer is unhappy'
+          : 'Customer is neutral';
+  }
+
+  get keyReviewTakeaway(): string {
+    const topSegment = (this.review.segments ?? [])[0]?.segment?.trim();
+
+    if (topSegment) {
+      return `Main theme: ${topSegment}`;
+    }
+
+    if ((this.review.starRating ?? 0) >= 4) {
+      return 'Main theme: positive product experience';
+    }
+
+    if ((this.review.starRating ?? 0) <= 2) {
+      return 'Main theme: customer concern';
+    }
+
+    return 'Main theme: general feedback';
   }
 
   get statusLabel(): string {
@@ -77,6 +118,26 @@ export class ReviewCardComponent {
     }
 
     return 'Pending Review';
+  }
+
+  get simpleStatusNote(): string {
+    if (this.processing) {
+      return 'We are still checking this review.';
+    }
+
+    if (this.review.isActive) {
+      return 'This review is live on your store.';
+    }
+
+    if (this.review.pipelineStatus === 'blocked') {
+      return 'This review is hidden and needs attention.';
+    }
+
+    if (this.review.pipelineStatus === 'manual-review') {
+      return 'Check it once, then publish when you are ready.';
+    }
+
+    return 'Review this item and choose if it should go live.';
   }
 
   onToggle(): void {

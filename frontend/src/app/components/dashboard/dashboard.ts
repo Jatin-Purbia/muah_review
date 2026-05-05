@@ -456,6 +456,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   get publishedCount(): number { return this.reviews.filter((review) => review.isActive).length; }
   get unpublishedCount(): number { return this.reviews.filter((review) => !review.isActive).length; }
+  get needsActionCount(): number {
+    return this.reviews.filter((review) => !review.isActive).length;
+  }
 
   get categories(): string[] {
     return [...new Set(this.reviews.map((review) => review.productName).filter(Boolean) as string[])];
