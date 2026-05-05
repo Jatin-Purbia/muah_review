@@ -340,6 +340,7 @@
                   [processing]="isProcessingReview(review.id)"
                   (selectionChange)="toggleSelectOne(review.id)"
                   (togglePublish)="onTogglePublish($event)"
+                  (blocked)="onBlockReview($event)"
                   (deleted)="onDelete($event)"
                   (viewDetails)="onViewReviewDetails($event)"
                 />
@@ -519,6 +520,7 @@
                   [selected]="false"
                   [processing]="isProcessingReview(review.id)"
                   (togglePublish)="onTogglePublish($event)"
+                  (blocked)="onBlockReview($event)"
                   (deleted)="onDelete($event)"
                   (viewDetails)="onViewReviewDetails($event)"
                 />

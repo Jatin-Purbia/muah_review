@@ -14,6 +14,7 @@ export class ReviewCardComponent {
   @Input() selected = false;
   @Input() processing = false;
   @Output() togglePublish = new EventEmitter<{ review: Review; published: boolean }>();
+  @Output() blocked = new EventEmitter<Review>();
   @Output() deleted = new EventEmitter<Review>();
   @Output() selectionChange = new EventEmitter<boolean>();
   @Output() viewDetails = new EventEmitter<Review>();
@@ -22,6 +23,7 @@ export class ReviewCardComponent {
   expanded = false;
   confirmDelete = false;
   confirmPublish = false;
+  confirmBlock = false;
 
   get stars(): string[] {
     const rating = this.review.starRating ?? 0;
@@ -90,6 +92,11 @@ export class ReviewCardComponent {
   onDelete(): void {
     this.deleted.emit(this.review);
     this.confirmDelete = false;
+  }
+
+  onBlock(): void {
+    this.blocked.emit(this.review);
+    this.confirmBlock = false;
   }
 
   onCardClick(event: MouseEvent): void {

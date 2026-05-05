@@ -738,6 +738,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  onBlockReview(review: Review): void {
+    this.reviewService.blockReview(review.id).subscribe({
+      next: (blockedReview) => {
+        this.reviews = this.reviews.map((item) => item.id === blockedReview.id
+          ? {
+              ...item,
+              ...blockedReview,
+              isActive: false,
+              pipelineStatus: 'blocked',
+              updatedAt: blockedReview.updatedAt ?? new Date().toISOString(),
+            }
+          : item
+        );
+        this.applyFilters();
+        this.loadSellerAnalytics();
+        this.showToast('Review blocked by super admin.', 'success');
+      },
+      error: () => {
+        this.showToast('Failed to block review.', 'error');
+      },
+    });
+  }
+
   private clearProcessingPoll(reviewId: string): void {
     const timer = this.processingPollTimers.get(reviewId);
     if (timer) {

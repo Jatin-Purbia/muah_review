@@ -333,6 +333,15 @@
       background: rgba(178, 70, 63, 0.18);
     }
   }
+
+  &.block {
+    background: rgba(126, 34, 34, 0.12);
+    color: #7f1d1d;
+
+    &:hover:not(:disabled) {
+      background: rgba(126, 34, 34, 0.18);
+    }
+  }
 }
 
 .confirm-prompt {

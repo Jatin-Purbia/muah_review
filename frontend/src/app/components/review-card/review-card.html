@@ -62,7 +62,7 @@
   </div>
 
   <div class="actions-section">
-    @if (!confirmDelete && !confirmPublish) {
+    @if (!confirmDelete && !confirmPublish && !confirmBlock) {
       <button
         class="action-btn view-details"
         (click)="viewDetails.emit(review); $event.stopPropagation()"
@@ -83,6 +83,15 @@
       </button>
 
       <button
+        class="action-btn block"
+        title="Block review"
+        [disabled]="processing || review.pipelineStatus === 'blocked'"
+        (click)="confirmBlock = true; $event.stopPropagation()"
+      >
+        Block
+      </button>
+
+      <button
         class="action-btn delete"
         title="Delete review"
         [disabled]="processing"
@@ -96,6 +105,14 @@
         <div class="confirm-actions">
           <button class="confirm-btn yes" (click)="onToggle(); $event.stopPropagation()">Confirm</button>
           <button class="confirm-btn no" (click)="confirmPublish = false; $event.stopPropagation()">Cancel</button>
+        </div>
+      </div>
+    } @else if (confirmBlock) {
+      <div class="confirm-prompt danger">
+        <span class="prompt-message">Block this review from appearing live?</span>
+        <div class="confirm-actions">
+          <button class="confirm-btn yes danger" (click)="onBlock(); $event.stopPropagation()">Block</button>
+          <button class="confirm-btn no" (click)="confirmBlock = false; $event.stopPropagation()">Cancel</button>
         </div>
       </div>
     } @else if (confirmDelete) {

@@ -212,6 +212,15 @@ export class ReviewService {
     );
   }
 
+  reject(id: string): Observable<Review> {
+    return this.http.post<BackendReviewDetail>(`${BACKEND_URL}/admin/reviews/${id}/reject`, {
+      actor: 'frontend-admin',
+      reason: 'Blocked from dashboard by super admin',
+    }).pipe(
+      map((review) => this.mapBackendReview(review))
+    );
+  }
+
   setPublishStatus(id: string, isActive: boolean): Observable<{ id: string; isActive: boolean }> {
     return isActive ? this.publish(id) : this.unpublish(id);
   }
@@ -239,6 +248,10 @@ export class ReviewService {
 
   deleteReview(id: string): Observable<unknown> {
     return this.delete(id);
+  }
+
+  blockReview(id: string): Observable<Review> {
+    return this.reject(id);
   }
 
   bulkDelete(ids: string[]): Observable<unknown[]> {
