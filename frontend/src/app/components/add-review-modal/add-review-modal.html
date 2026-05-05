@@ -1,8 +1,13 @@
 <div class="modal-backdrop" (click)="onBackdropClick($event)">
   <div class="modal">
     <div class="modal-header">
-      <h2>Add New Review</h2>
-      <button class="close-btn" (click)="cancelled.emit()">Close</button>
+      <div class="header-top">
+        <div class="header-text">
+          <span class="eyebrow">Share your experience</span>
+          <h2>Write a review</h2>
+        </div>
+        <button class="close-btn" (click)="cancelled.emit()" aria-label="Close">&times;</button>
+      </div>
     </div>
 
     <div class="modal-body">
@@ -13,81 +18,117 @@
         <div class="form-error submit-error">{{ submitError }}</div>
       }
       @if (submitting) {
-        <div class="submit-state">Submitting your review...</div>
+        <div class="submit-state">
+          <span class="spinner"></span>
+          Submitting your review&hellip;
+        </div>
+      }
+
+      @if (selectedProduct) {
+        <div class="product-card">
+          @if (selectedProduct.imageUrl) {
+            <div class="product-thumb">
+              <img [src]="selectedProduct.imageUrl" [alt]="selectedProduct.name" />
+            </div>
+          } @else {
+            <div class="product-thumb product-thumb--placeholder">
+              {{ selectedProduct.name.charAt(0) }}
+            </div>
+          }
+          <div class="product-meta">
+            <span class="product-eyebrow">Reviewing</span>
+            <strong class="product-name">{{ selectedProduct.name }}</strong>
+            <div class="product-tags">
+              <span class="product-chip">{{ selectedProduct.sellerName }}</span>
+              @if (selectedProduct.price) {
+                <span class="product-chip product-chip--price">&#8377;{{ selectedProduct.price }}</span>
+              }
+            </div>
+          </div>
+        </div>
+      } @else {
+        <div class="product-empty">
+          Choose <strong>"Write Review"</strong> on a product card to open this form.
+        </div>
       }
 
       <div class="field">
-        <label>Product</label>
-        @if (selectedProduct) {
-          <div class="field-hint">
-            <strong>{{ selectedProduct.name }}</strong><br />
-            Seller: {{ selectedProduct.sellerName }}
-          </div>
-        } @else {
-          <p class="field-hint">Choose "Write Review" on a product card to open this form.</p>
-        }
-      </div>
-
-      <div class="field">
-        <label>Review Category *</label>
-        <select [(ngModel)]="form.category">
-          <option value="" disabled selected>Select a category...</option>
-          @for (category of reviewCategories; track category.value) {
-            <option [value]="category.value">{{ category.label }}</option>
-          }
-        </select>
-      </div>
-
-      <div class="field">
-        <label>Review Title *</label>
-        <input
-          type="text"
-          [(ngModel)]="form.title"
-          placeholder="Summarize your review in one line..."
-          maxlength="150"
-        />
-      </div>
-
-      <div class="field">
-        <label>Rating *</label>
+        <label>Rating <span class="req">*</span></label>
         <div class="star-picker">
-          @for (star of [1,2,3,4,5]; track star) {
-            <button
-              type="button"
-              class="star-btn"
-              [class.active]="star <= (hoverRating || form.starRating)"
-              (mouseenter)="hoverRating = star"
-              (mouseleave)="hoverRating = 0"
-              (click)="setRating(star)"
-            >*</button>
-          }
-          @if (form.starRating) {
-            <span class="rating-label">{{ form.starRating }}/5</span>
+          <div class="stars">
+            @for (star of [1,2,3,4,5]; track star) {
+              <button
+                type="button"
+                class="star-btn"
+                [class.active]="star <= displayedRating"
+                (mouseenter)="hoverRating = star"
+                (mouseleave)="hoverRating = 0"
+                (click)="setRating(star)"
+                [attr.aria-label]="star + ' star'"
+              >{{ star <= displayedRating ? '★' : '☆' }}</button>
+            }
+          </div>
+          @if (displayedRating) {
+            <span class="rating-label">
+              <strong>{{ displayedRating }}/5</strong>
+              <span class="rating-word">{{ ratingLabel }}</span>
+            </span>
+          } @else {
+            <span class="rating-label rating-label--empty">Tap a star</span>
           }
         </div>
       </div>
 
       <div class="field">
-        <label>Review Description *</label>
+        <label>Category <span class="req">*</span></label>
+        <div class="category-pills">
+          @for (category of reviewCategories; track category.value) {
+            <button
+              type="button"
+              class="category-pill"
+              [class.active]="form.category === category.value"
+              (click)="selectCategory(category.value)"
+            >{{ category.label }}</button>
+          }
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Headline <span class="req">*</span></label>
+        <input
+          type="text"
+          [(ngModel)]="form.title"
+          placeholder="Summarize your review in one line&hellip;"
+          maxlength="150"
+        />
+        <span class="char-count">{{ form.title.length }}/150</span>
+      </div>
+
+      <div class="field">
+        <label>What stood out? <span class="req">*</span></label>
         <textarea
           [(ngModel)]="form.description"
-          placeholder="Share your detailed experience..."
-          rows="4"
+          placeholder="Share what worked, what didn't, and anything else worth knowing&hellip;"
+          rows="5"
           maxlength="1000"
         ></textarea>
         <span class="char-count">{{ form.description.length }}/1000</span>
       </div>
 
       <div class="field">
-        <label>Media (Optional)</label>
-        <p class="field-hint">You can add images or videos to support your review</p>
+        <label>Photos or video <span class="optional">Optional</span></label>
+        <div class="media-drop">
+          <span class="media-icon">&#128247;</span>
+          <span class="media-copy">Add images or video to back up your review</span>
+          <span class="media-soon">Coming soon</span>
+        </div>
       </div>
     </div>
 
     <div class="modal-footer">
       <button class="btn-cancel" (click)="cancelled.emit()" [disabled]="submitting">Cancel</button>
       <button class="btn-submit" (click)="submit()" [disabled]="!isValid || submitting">
-        @if (submitting) { Submitting... } @else { Submit Review }
+        @if (submitting) { Submitting&hellip; } @else { Submit review }
       </button>
     </div>
   </div>

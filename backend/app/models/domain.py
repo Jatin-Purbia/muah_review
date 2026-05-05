@@ -35,6 +35,7 @@ class Review(BaseModel):
     category: ReviewCategory = ReviewCategory.PRODUCTS
     status: ReviewStatus = ReviewStatus.SUBMITTED
     is_published: bool = False
+    is_deleted: bool = False
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
     media_ids: list[str] = Field(default_factory=list)
@@ -49,6 +50,8 @@ class ReviewTextAnalysis(BaseModel):
     confidence_score: float
     aspect_json: list[dict[str, Any]]
     summary: str
+    analysis_mode: str = "llm"
+    analysis_error: str | None = None
 
 
 class ReviewImageAnalysis(BaseModel):

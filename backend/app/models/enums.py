@@ -27,6 +27,7 @@ class ActionType(str, Enum):
     REJECTED = "rejected"
     FLAGGED = "flagged"
     UNPUBLISHED = "unpublished"
+    DELETED = "deleted"
     CONFIG_UPDATED = "config_updated"
     MANUAL_OVERRIDE = "manual_override"
 

@@ -33,25 +33,19 @@ class InMemoryRepository(ReviewRepository):
         return review
 
     def list_reviews(self) -> list[Review]:
-        return list(self.reviews.values())
+        return [review for review in self.reviews.values() if not review.is_deleted]
 
     def get_review(self, review_id: str) -> Review | None:
         return self.reviews.get(review_id)
 
     def delete_review(self, review_id: str) -> bool:
-        review = self.reviews.pop(review_id, None)
+        review = self.reviews.get(review_id)
         if not review:
             return False
-
-        media_ids = [media.id for media in self.review_media.values() if media.review_id == review_id]
-        for media_id in media_ids:
-            self.review_media.pop(media_id, None)
-            self.image_analysis.pop(media_id, None)
-            self.video_analysis.pop(media_id, None)
-
-        self.text_analysis.pop(review_id, None)
-        self.fusion_decisions.pop(review_id, None)
-        self.logs.pop(review_id, None)
+        review.is_deleted = True
+        review.is_published = False
+        review.updated_at = datetime.now(timezone.utc)
+        self.reviews[review_id] = review
         return True
 
     def update_review_status(self, review_id: str, status: ReviewStatus, *, is_published: bool | None = None) -> Review:

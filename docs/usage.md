@@ -232,7 +232,7 @@ Open DevTools → Network. Likely:
 
 ## Production-readiness gaps
 
-These are the things to fix before going beyond local dev. They live as TODOs in [backend/README.md](../backend/README.md):
+These are the things to fix before going beyond local dev:
 
 - **No persistence by default** — switch to Astra DB or replace `InMemoryRepository` with PostgreSQL + SQLAlchemy.
 - **No background queue** — `BackgroundTasks` runs in-process and can't survive restart. Move to Celery/RQ + Redis.

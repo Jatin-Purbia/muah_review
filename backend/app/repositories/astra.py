@@ -96,7 +96,11 @@ class AstraRepository:
         return review
 
     def list_reviews(self) -> list[Review]:
-        return [self._hydrate_review(document) for document in self.reviews.find({"doc_type": "review"})]
+        return [
+            review
+            for document in self.reviews.find({"doc_type": "review"})
+            if not (review := self._hydrate_review(document)).is_deleted
+        ]
 
     def get_review(self, review_id: str) -> Review | None:
         document = self._get_review_document(review_id)
@@ -105,8 +109,17 @@ class AstraRepository:
         return self._hydrate_review(document)
 
     def delete_review(self, review_id: str) -> bool:
-        result = self.reviews.delete_one({"_id": review_id, "doc_type": "review"})
-        return bool(getattr(result, "deleted_count", 0))
+        document = self._get_review_document(review_id)
+        if not document:
+            return False
+
+        review = self._hydrate_review(document)
+        review.is_deleted = True
+        review.is_published = False
+        review.updated_at = datetime.now(timezone.utc)
+        document["review"] = review.model_dump(mode="json")
+        self._save_review_document(document)
+        return True
 
     def update_review_status(self, review_id: str, status: ReviewStatus, *, is_published: bool | None = None) -> Review:
         document = self._get_review_document(review_id)

@@ -53,8 +53,9 @@ def get_products(products: ProductCatalogService = Depends(get_product_catalog_s
 def get_seller_reviews(
     seller_id: str,
     analytics: SellerAnalyticsService = Depends(get_seller_analytics_service),
+    products: ProductCatalogService = Depends(get_product_catalog_service),
 ) -> list[dict]:
-    return analytics.list_reviews(seller_id)
+    return analytics.list_reviews(seller_id, products.product_map())
 
 
 @router.get("/seller/{seller_id}/analytics/summary")

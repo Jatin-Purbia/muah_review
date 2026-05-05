@@ -335,11 +335,32 @@
             <h3>Seller Performance</h3>
           </div>
 
-          <select class="seller-select" [(ngModel)]="selectedSellerId" (ngModelChange)="loadSellerAnalytics()">
-            @for (seller of sellers; track seller.id) {
-              <option [value]="seller.id">{{ seller.name }}</option>
+          <div class="seller-dropdown" [class.open]="sellerDropdownOpen">
+            <button
+              type="button"
+              class="seller-dropdown-trigger"
+              (click)="toggleSellerDropdown($event)"
+              [attr.aria-expanded]="sellerDropdownOpen"
+              aria-haspopup="listbox"
+            >
+              <span class="seller-dropdown-label">{{ selectedSeller?.name ?? 'Select seller' }}</span>
+              <span class="seller-dropdown-caret" aria-hidden="true">▾</span>
+            </button>
+            @if (sellerDropdownOpen) {
+              <div class="seller-dropdown-menu" role="listbox" (click)="$event.stopPropagation()">
+                @for (seller of sellers; track seller.id) {
+                  <button
+                    type="button"
+                    class="seller-dropdown-option"
+                    role="option"
+                    [class.active]="seller.id === selectedSellerId"
+                    [attr.aria-selected]="seller.id === selectedSellerId"
+                    (click)="selectSeller(seller.id)"
+                  >{{ seller.name }}</button>
+                }
+              </div>
             }
-          </select>
+          </div>
         </div>
 
         <div class="seller-hero">
@@ -452,14 +473,14 @@
           <article class="analysis-card">
             <div class="pipeline-header">
               <div>
-                <span class="section-kicker">Pipeline signals</span>
-                <h4>Key signals</h4>
+                <span class="section-kicker">Seller status</span>
+                <h4>Review visibility</h4>
               </div>
             </div>
 
-            @if (sellerTopSignals.length > 0) {
+            @if (sellerStatusCards.length > 0) {
               <div class="signal-list">
-                @for (signal of sellerTopSignals; track signal.title) {
+                @for (signal of sellerStatusCards; track signal.title) {
                   <div class="signal-card" [class.good]="signal.tone === 'good'" [class.warn]="signal.tone === 'warn'" [class.danger]="signal.tone === 'danger'">
                     <strong>{{ signal.title }}</strong>
                     <p>{{ signal.body }}</p>
@@ -468,9 +489,9 @@
               </div>
             } @else {
               <div class="empty-state compact">
-                <div class="empty-icon">Signals</div>
-                <h3>No seller signals yet</h3>
-                <p>Review insights will appear here once this seller has real sentiment and moderation data.</p>
+                <div class="empty-icon">Status</div>
+                <h3>No seller status yet</h3>
+                <p>Seller review visibility details will show up once reviews are available.</p>
               </div>
             }
           </article>

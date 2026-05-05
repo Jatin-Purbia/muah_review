@@ -85,38 +85,47 @@ class ReviewWorkflowService:
             new_status=ReviewStatus.PROCESSING,
             reason="Processing job started.",
         )
+        try:
+            text_analysis = self.text_service.analyze(review)
+            self.repo.save_text_analysis(text_analysis)
 
-        text_analysis = self.text_service.analyze(review)
-        self.repo.save_text_analysis(text_analysis)
+            # Media is stored but not analyzed for content/relevance yet.
+            media_items = self.repo.get_review_media(review_id)
+            media_score = 0.6 if media_items else 0.5
 
-        # Media is stored but not analyzed for content/relevance
-        # Media score is neutral - just indicates media presence
-        media_items = self.repo.get_review_media(review_id)
-        media_score = 0.6 if media_items else 0.5
+            rating_signal = self.rating_service.detect_mismatch(review.star_rating, text_analysis.overall_score, media_score)
+            config = self.config_service.get()
+            decision = self.fusion_service.decide(
+                review_id=review_id,
+                config=config,
+                text_analysis=text_analysis,
+                rating_signal=rating_signal,
+                media_score=media_score,
+                image_findings=[],
+                video_findings=[],
+            )
+            self.repo.save_fusion_decision(decision)
 
-        rating_signal = self.rating_service.detect_mismatch(review.star_rating, text_analysis.overall_score, media_score)
-        config = self.config_service.get()
-        decision = self.fusion_service.decide(
-            review_id=review_id,
-            config=config,
-            text_analysis=text_analysis,
-            rating_signal=rating_signal,
-            media_score=media_score,
-            image_findings=[],
-            video_findings=[],
-        )
-        self.repo.save_fusion_decision(decision)
-
-        is_published = decision.decision == ReviewStatus.PUBLISHED
-        self.repo.update_review_status(review_id, decision.decision, is_published=is_published)
-        self.audit_service.log(
-            review_id,
-            action_by="system",
-            action_type=ActionType.PROCESSED,
-            previous_status=ReviewStatus.PROCESSING,
-            new_status=decision.decision,
-            reason=decision.decision_reason,
-        )
+            is_published = decision.decision == ReviewStatus.PUBLISHED
+            self.repo.update_review_status(review_id, decision.decision, is_published=is_published)
+            self.audit_service.log(
+                review_id,
+                action_by="system",
+                action_type=ActionType.PROCESSED,
+                previous_status=ReviewStatus.PROCESSING,
+                new_status=decision.decision,
+                reason=decision.decision_reason,
+            )
+        except Exception as exc:
+            self.repo.update_review_status(review_id, ReviewStatus.FAILED, is_published=False)
+            self.audit_service.log(
+                review_id,
+                action_by="system",
+                action_type=ActionType.PROCESSED,
+                previous_status=ReviewStatus.PROCESSING,
+                new_status=ReviewStatus.FAILED,
+                reason=f"Processing failed: {exc}",
+            )
 
     def get_review_detail(self, review_id: str) -> dict:
         review = self.repo.get_review(review_id)
@@ -155,6 +164,14 @@ class ReviewWorkflowService:
         if not review:
             raise HTTPException(status_code=404, detail="Review not found")
 
+        self.audit_service.log(
+            review_id,
+            action_by=request.actor,
+            action_type=ActionType.DELETED,
+            previous_status=review.status,
+            new_status=review.status,
+            reason=request.reason,
+        )
         deleted = self.repo.delete_review(review_id)
         if not deleted:
             raise HTTPException(status_code=404, detail="Review not found")

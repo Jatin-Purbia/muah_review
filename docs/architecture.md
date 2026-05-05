@@ -56,7 +56,7 @@ Both store the entire review aggregate — review, media, text/image/video analy
 
 ### Background processing
 
-`POST /api/reviews` returns `201 Created` immediately and registers `workflow.process_review(review_id)` as a FastAPI `BackgroundTask`. The pipeline runs in-process. There is no Celery/RQ broker yet — see the TODOs in [backend/README.md](../backend/README.md).
+`POST /api/reviews` returns `201 Created` immediately and registers `workflow.process_review(review_id)` as a FastAPI `BackgroundTask`. The pipeline runs in-process. There is no Celery/RQ broker yet.
 
 ## Frontend architecture
 

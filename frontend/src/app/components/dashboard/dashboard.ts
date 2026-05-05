@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReviewService } from '../../services/review.service';
@@ -53,6 +53,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   readonly reviewCategories = [...REVIEW_CATEGORIES];
   products: ProductCatalogItem[] = [];
   reviews: Review[] = [];
+  sellerPortalReviews: Review[] = [];
   filteredReviews: Review[] = [];
   categoryStats: SiteCategoryReview[] = [];
   loading = false;
@@ -84,6 +85,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   pipelineAutomationEnabled = true;
   automationThreshold = 72;
   selectedSellerId = '';
+  sellerDropdownOpen = false;
 
   get someSelected(): boolean { return this.selectedIds.size > 0; }
   get selectedCount(): number { return this.selectedIds.size; }
@@ -98,7 +100,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   get sellerReviews(): Review[] {
-    return this.reviews.filter((review) => review.sellerId === this.selectedSellerId);
+    return this.sellerPortalReviews;
   }
 
   get productTotalPages(): number {
@@ -303,9 +305,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const total = reviews.length || 1;
 
     return [
-      { label: 'Happy', value: Math.round((reviews.filter((review) => (review.sentimentScore ?? 0) >= 70).length / total) * 100), tone: 'good' },
-      { label: 'Mixed', value: Math.round((reviews.filter((review) => (review.sentimentScore ?? 0) >= 45 && (review.sentimentScore ?? 0) < 70).length / total) * 100), tone: 'warn' },
-      { label: 'Unhappy', value: Math.round((reviews.filter((review) => (review.sentimentScore ?? 0) < 45).length / total) * 100), tone: 'danger' },
+      { label: 'Happy', value: Math.round((reviews.filter((review) => (review.starRating ?? 0) >= 4).length / total) * 100), tone: 'good' },
+      { label: 'Mixed', value: Math.round((reviews.filter((review) => (review.starRating ?? 0) === 3).length / total) * 100), tone: 'warn' },
+      { label: 'Unhappy', value: Math.round((reviews.filter((review) => (review.starRating ?? 0) <= 2).length / total) * 100), tone: 'danger' },
     ];
   }
 
@@ -346,38 +348,32 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }));
   }
 
-  get sellerTopSignals(): { title: string; body: string; tone: 'good' | 'warn' | 'danger' }[] {
-    const topNegative = this.sellerFlaggedReviews[0];
-    const topPositive = [...this.sellerReviews].sort((a, b) => (b.sentimentScore ?? 0) - (a.sentimentScore ?? 0))[0];
-    const signals: { title: string; body: string; tone: 'good' | 'warn' | 'danger' }[] = [];
+  get sellerStatusCards(): { title: string; body: string; tone: 'good' | 'warn' | 'danger' }[] {
+    const pending = this.sellerAnalytics?.pending_reviews ?? this.sellerFlaggedReviews.length;
+    const flagged = this.sellerAnalytics?.flagged_reviews ?? this.sellerReviews.filter((review) => review.pipelineStatus === 'blocked').length;
+    const live = this.sellerAnalytics?.published_reviews ?? this.sellerPublishedReviews.length;
+    const cards: { title: string; body: string; tone: 'good' | 'warn' | 'danger' }[] = [
+      {
+        title: 'Live on store',
+        body: `${live} review(s) are currently visible to shoppers.`,
+        tone: live > 0 ? 'good' : 'warn',
+      },
+      {
+        title: 'Waiting on admin',
+        body: `${pending} review(s) are still in admin review before they can go live.`,
+        tone: pending > 0 ? 'warn' : 'good',
+      },
+    ];
 
-    if (topPositive) {
-      signals.push({
-        title: 'What customers love',
-        body: `${topPositive.productName}: strongest signal around ${topPositive.segments?.[0]?.segment?.toLowerCase() ?? 'overall product quality'}.`,
-        tone: 'good',
-      });
-    }
-
-    if (topNegative) {
-      signals.push({
-        title: 'What needs work',
-        body: `${topNegative.productName}: pipeline flagged concerns around ${topNegative.segments?.find((segment) => segment.sentiment === 'negative')?.segment?.toLowerCase() ?? 'review sentiment'}.`,
+    if (flagged > 0) {
+      cards.push({
+        title: 'Held back',
+        body: `${flagged} review(s) are currently blocked by moderation.`,
         tone: 'danger',
       });
     }
 
-    if (this.sellerReviews.length > 0) {
-      signals.push({
-        title: 'Action recommendation',
-        body: this.sellerFlaggedReviews.length > 0
-          ? `${this.sellerFlaggedReviews.length} review(s) still need attention before the seller view is fully clear.`
-          : `${this.sellerPublishedReviews.length} published review(s) are currently live with no flagged seller issues.`,
-        tone: this.sellerFlaggedReviews.length > 0 ? 'warn' : 'good',
-      });
-    }
-
-    return signals;
+    return cards;
   }
 
   sellerAnalytics: SellerAnalyticsSummary | null = null;
@@ -425,6 +421,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  toggleSellerDropdown(event: MouseEvent): void {
+    event.stopPropagation();
+    this.sellerDropdownOpen = !this.sellerDropdownOpen;
+  }
+
+  selectSeller(id: string): void {
+    if (id !== this.selectedSellerId) {
+      this.selectedSellerId = id;
+      this.loadSellerAnalytics();
+    }
+    this.sellerDropdownOpen = false;
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    if (this.sellerDropdownOpen) {
+      this.sellerDropdownOpen = false;
+    }
+  }
+
   loadSellerAnalytics(): void {
     if (!this.selectedSellerId) {
       return;
@@ -432,6 +448,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.sellerAnalytics = null;
     this.sellerTrends = [];
     this.sellerAspects = [];
+    this.sellerPortalReviews = [];
     this.analyticsService.getSummary(this.selectedSellerId).subscribe({
       next: (summary) => { this.sellerAnalytics = summary; },
       error: () => { this.sellerAnalytics = null; },
@@ -443,6 +460,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.analyticsService.getAspects(this.selectedSellerId).subscribe({
       next: (aspects) => { this.sellerAspects = aspects; },
       error: () => { this.sellerAspects = []; },
+    });
+    this.loadSellerPortalReviews();
+  }
+
+  loadSellerPortalReviews(): void {
+    if (!this.selectedSellerId) {
+      this.sellerPortalReviews = [];
+      return;
+    }
+    this.reviewService.getSellerReviews(this.selectedSellerId).subscribe({
+      next: (reviews) => { this.sellerPortalReviews = reviews; },
+      error: () => { this.sellerPortalReviews = []; },
     });
   }
 

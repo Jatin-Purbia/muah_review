@@ -1,6 +1,9 @@
 import json
 import re
 from statistics import mean
+from typing import Literal
+
+from pydantic import BaseModel, ValidationError
 
 try:
     import ollama
@@ -9,6 +12,24 @@ except ImportError:
     OLLAMA_AVAILABLE = False
 
 from app.models.domain import Review, ReviewImageAnalysis, ReviewMedia, ReviewTextAnalysis, ReviewVideoAnalysis
+
+
+class SentimentPayload(BaseModel):
+    sentiment: Literal["positive", "mixed", "negative"]
+    sentiment_score: float
+    toxicity_score: float
+    spam_score: float
+    summary: str
+
+
+class AspectPayloadItem(BaseModel):
+    aspect: str
+    sentiment: Literal["positive", "neutral", "negative"]
+    score: float
+
+
+class AspectPayload(BaseModel):
+    aspects: list[AspectPayloadItem]
 
 
 class TextAnalysisService:
@@ -63,6 +84,7 @@ class TextAnalysisService:
             confidence_score=0.82,
             aspect_json=aspects,
             summary=f"Text sentiment is {sentiment} with {positive_hits} positive and {negative_hits} negative cues.",
+            analysis_mode="heuristic",
         )
 
 
@@ -156,13 +178,21 @@ class OllamaTextAnalysisService:
         )
         return response.get("response", "").strip()
 
+    @staticmethod
+    def _extract_json_object(raw: str) -> str:
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            raise ValueError("Model response did not contain a JSON object.")
+        return raw[start:end + 1]
+
     def analyze(self, review: Review) -> ReviewTextAnalysis:
         """Analyze review using Qwen model for sentiment, toxicity, spam, and aspects."""
         text = f"{review.title} {review.description}"
 
         if not self.client:
             # Fallback to basic analysis if Ollama unavailable
-            return self._fallback_analysis(review)
+            return self._fallback_analysis(review, reason="llm_unavailable")
 
         # Analyze sentiment and toxicity
         sentiment_prompt = f"""Analyze this review and respond in JSON format:
@@ -179,9 +209,9 @@ Respond ONLY with valid JSON (no markdown, no explanation):
 
         try:
             response = self._query_model(sentiment_prompt)
-            analysis_data = json.loads(response)
-        except (json.JSONDecodeError, RuntimeError):
-            return self._fallback_analysis(review)
+            analysis_data = SentimentPayload.model_validate_json(self._extract_json_object(response))
+        except (ValidationError, ValueError, RuntimeError):
+            return self._fallback_analysis(review, reason="llm_sentiment_parse_failed")
 
         # Analyze aspects
         aspects_prompt = f"""Identify product/service aspects mentioned in this review:
@@ -197,31 +227,32 @@ Respond ONLY with valid JSON (no markdown):
 
         try:
             aspects_response = self._query_model(aspects_prompt)
-            aspects_data = json.loads(aspects_response)
-            aspects = aspects_data.get("aspects", [])
-        except (json.JSONDecodeError, RuntimeError):
+            aspects_data = AspectPayload.model_validate_json(self._extract_json_object(aspects_response))
+            aspects = [item.model_dump() for item in aspects_data.aspects]
+        except (ValidationError, ValueError, RuntimeError):
             aspects = []
 
         # Ensure we have at least default aspects
         if not aspects:
             aspects = [
-                {"aspect": "product_quality", "sentiment": analysis_data.get("sentiment", "neutral"), "score": analysis_data.get("sentiment_score", 0.5)},
+                {"aspect": "product_quality", "sentiment": analysis_data.sentiment, "score": analysis_data.sentiment_score},
                 {"aspect": "delivery", "sentiment": "neutral", "score": 0.5},
                 {"aspect": "service", "sentiment": "neutral", "score": 0.5},
             ]
 
         return ReviewTextAnalysis(
             review_id=review.id,
-            overall_sentiment=analysis_data.get("sentiment", "mixed"),
-            overall_score=round(analysis_data.get("sentiment_score", 0.5), 2),
-            spam_score=min(1.0, analysis_data.get("spam_score", 0.0)),
-            toxicity_score=min(1.0, analysis_data.get("toxicity_score", 0.0)),
+            overall_sentiment=analysis_data.sentiment,
+            overall_score=round(max(0.0, min(1.0, analysis_data.sentiment_score)), 2),
+            spam_score=round(max(0.0, min(1.0, analysis_data.spam_score)), 2),
+            toxicity_score=round(max(0.0, min(1.0, analysis_data.toxicity_score)), 2),
             confidence_score=0.92,  # Qwen-based analysis has higher confidence
             aspect_json=aspects,
-            summary=analysis_data.get("summary", "Qwen analysis complete."),
+            summary=analysis_data.summary,
+            analysis_mode="llm",
         )
 
-    def _fallback_analysis(self, review: Review) -> ReviewTextAnalysis:
+    def _fallback_analysis(self, review: Review, reason: str = "llm_unavailable") -> ReviewTextAnalysis:
         """Fallback to basic keyword analysis if Ollama unavailable."""
         text = (review.title + " " + review.description).lower()
         sentiment_score, sentiment, _, _ = TextAnalysisService._score_text(text)
@@ -241,4 +272,6 @@ Respond ONLY with valid JSON (no markdown):
                 {"aspect": "service", "sentiment": "neutral", "score": 0.5},
             ],
             summary=f"Fallback analysis: {sentiment} sentiment detected.",
+            analysis_mode="fallback",
+            analysis_error=reason,
         )

@@ -2,16 +2,75 @@ from collections import defaultdict
 
 from app.models.enums import ReviewStatus
 from app.repositories.base import ReviewRepository
-from app.schemas.analytics import SellerAnalyticsSummary, SellerAspectInsight, SellerTrendPoint
+from app.schemas.analytics import SellerAnalyticsSummary, SellerAspectInsight, SellerReviewInsight, SellerTrendPoint
 
 
 class SellerAnalyticsService:
     def __init__(self, repo: ReviewRepository) -> None:
         self.repo = repo
 
-    def list_reviews(self, seller_id: str) -> list[dict]:
+    @staticmethod
+    def _customer_tone(overall_sentiment: str | None, star_rating: int) -> str:
+        if overall_sentiment in {"positive", "mixed", "negative"}:
+            return overall_sentiment
+        if star_rating >= 4:
+            return "positive"
+        if star_rating <= 2:
+            return "negative"
+        return "neutral"
+
+    @staticmethod
+    def _main_theme(aspect_json: list[dict]) -> str | None:
+        if not aspect_json:
+            return None
+        top_aspect = max(aspect_json, key=lambda item: float(item.get("score", 0.0)))
+        return str(top_aspect.get("aspect", "")).replace("_", " ").strip() or None
+
+    @staticmethod
+    def _seller_action(review_status: ReviewStatus, is_published: bool) -> str:
+        if is_published or review_status == ReviewStatus.PUBLISHED:
+            return "Live on store"
+        if review_status == ReviewStatus.PENDING_MANUAL_REVIEW:
+            return "Waiting for admin review"
+        if review_status == ReviewStatus.FLAGGED:
+            return "Blocked for safety review"
+        if review_status == ReviewStatus.REJECTED:
+            return "Rejected by moderation"
+        if review_status == ReviewStatus.FAILED:
+            return "Processing failed"
+        if review_status == ReviewStatus.PROCESSING:
+            return "Processing now"
+        return "Not live"
+
+    def list_reviews(self, seller_id: str, products: dict[str, dict] | None = None) -> list[dict]:
         reviews = [review for review in self.repo.list_reviews() if review.seller_id == seller_id]
-        return [review.model_dump() for review in reviews]
+        result: list[dict] = []
+        for review in reviews:
+            analysis = self.repo.get_text_analysis(review.id)
+            product = (products or {}).get(review.product_id, {})
+            insight = SellerReviewInsight(
+                review_id=review.id,
+                title=review.title,
+                description=review.description,
+                category=review.category.value,
+                product_id=review.product_id,
+                product_name=product.get("name", review.product_id),
+                seller_id=review.seller_id,
+                seller_name=product.get("seller_name", review.seller_id),
+                star_rating=review.star_rating,
+                status=review.status.value,
+                is_published=review.is_published,
+                created_at=review.created_at,
+                updated_at=review.updated_at,
+                customer_tone=self._customer_tone(analysis.overall_sentiment if analysis else None, review.star_rating),
+                analysis_mode=analysis.analysis_mode if analysis else None,
+                analysis_summary=analysis.summary if analysis else None,
+                main_theme=self._main_theme(analysis.aspect_json if analysis else []),
+                seller_action=self._seller_action(review.status, review.is_published),
+                aspect_json=analysis.aspect_json if analysis else [],
+            )
+            result.append(insight.model_dump(mode="json"))
+        return result
 
     def summary(self, seller_id: str) -> SellerAnalyticsSummary:
         reviews = [review for review in self.repo.list_reviews() if review.seller_id == seller_id]

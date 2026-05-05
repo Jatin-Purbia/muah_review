@@ -36,6 +36,14 @@ export class AddReviewModalComponent implements OnChanges {
     label: category,
   }));
 
+  private readonly ratingLabels: Record<number, string> = {
+    1: 'Poor',
+    2: 'Below average',
+    3: 'Average',
+    4: 'Good',
+    5: 'Excellent',
+  };
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['selectedProductId'] || changes['products']) {
       this.applySelectedProduct(this.selectedProductId);
@@ -59,8 +67,20 @@ export class AddReviewModalComponent implements OnChanges {
     );
   }
 
+  get displayedRating(): number {
+    return this.hoverRating || this.form.starRating;
+  }
+
+  get ratingLabel(): string {
+    return this.ratingLabels[this.displayedRating] ?? '';
+  }
+
   setRating(star: number): void {
     this.form.starRating = star;
+  }
+
+  selectCategory(value: string): void {
+    this.form.category = value;
   }
 
   private applySelectedProduct(productId: string | null): void {

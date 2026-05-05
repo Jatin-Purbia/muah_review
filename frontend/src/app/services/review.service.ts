@@ -37,12 +37,38 @@ interface BackendReviewDetail extends BackendReview {
   product_name?: string;
   seller_name?: string;
   text_analysis?: {
+    overall_sentiment?: string;
     overall_score?: number;
+    summary?: string;
+    analysis_mode?: string;
+    aspect_json?: Array<{ aspect?: string; sentiment?: string; score?: number }>;
   } | null;
   fusion_decision?: {
     final_score?: number;
     decision?: string;
   } | null;
+}
+
+interface BackendSellerReviewInsight {
+  review_id: string;
+  title: string;
+  description: string;
+  category: string;
+  product_id: string;
+  product_name: string;
+  seller_id: string;
+  seller_name: string;
+  star_rating: number;
+  status: string;
+  is_published: boolean;
+  created_at: string;
+  updated_at: string;
+  customer_tone?: string;
+  analysis_mode?: string | null;
+  analysis_summary?: string | null;
+  main_theme?: string | null;
+  seller_action?: string;
+  aspect_json?: Array<{ aspect?: string; sentiment?: string; score?: number }>;
 }
 
 interface BackendProduct {
@@ -91,6 +117,41 @@ export class ReviewService {
       sentimentScore: detail.text_analysis?.overall_score !== undefined ? Math.round(detail.text_analysis.overall_score * 100) : undefined,
       pipelineStatus: this.mapPipelineStatus(detail.fusion_decision?.decision ?? detail.status),
       autoPublishEligible: (detail.fusion_decision?.decision ?? detail.status) === 'published',
+      segments: (detail.text_analysis?.aspect_json ?? []).map((item) => ({
+        segment: String(item.aspect ?? 'general feedback').replace(/_/g, ' '),
+        sentiment: (item.sentiment === 'positive' || item.sentiment === 'negative' || item.sentiment === 'neutral')
+          ? item.sentiment
+          : 'neutral',
+        score: Number(item.score ?? 0),
+      })),
+    };
+  }
+
+  private mapSellerReview(detail: BackendSellerReviewInsight): Review {
+    return {
+      id: detail.review_id,
+      userId: '',
+      title: detail.title,
+      description: detail.description,
+      starRating: detail.star_rating,
+      category: detail.category,
+      helpfulCount: 0,
+      unHelpfulCount: 0,
+      isActive: detail.is_published,
+      isDeleted: false,
+      createdAt: detail.created_at,
+      updatedAt: detail.updated_at ?? null,
+      sellerId: detail.seller_id,
+      sellerName: detail.seller_name,
+      productName: detail.product_name,
+      pipelineStatus: this.mapPipelineStatus(detail.status),
+      segments: (detail.aspect_json ?? []).map((item) => ({
+        segment: String(item.aspect ?? 'general feedback').replace(/_/g, ' '),
+        sentiment: (item.sentiment === 'positive' || item.sentiment === 'negative' || item.sentiment === 'neutral')
+          ? item.sentiment
+          : 'neutral',
+        score: Number(item.score ?? 0),
+      })),
     };
   }
 
@@ -155,6 +216,13 @@ export class ReviewService {
   getReviews(): Observable<Review[]> {
     return this.http.get<BackendReviewDetail[]>(`${BACKEND_URL}/admin/reviews`).pipe(
       map((reviews) => reviews.map((review) => this.mapBackendReview(review))),
+      map((reviews) => [...reviews].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
+    );
+  }
+
+  getSellerReviews(sellerId: string): Observable<Review[]> {
+    return this.http.get<BackendSellerReviewInsight[]>(`${BACKEND_URL}/seller/${sellerId}/reviews`).pipe(
+      map((reviews) => reviews.map((review) => this.mapSellerReview(review))),
       map((reviews) => [...reviews].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
     );
   }
