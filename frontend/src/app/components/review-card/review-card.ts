@@ -15,6 +15,7 @@ export class ReviewCardComponent {
   @Input() processing = false;
   @Input() selectable = true;
   @Input() managementMode: 'full' | 'simple' = 'full';
+  @Input() canManageReview = true;
   @Output() togglePublish = new EventEmitter<{ review: Review; published: boolean }>();
   @Output() blocked = new EventEmitter<Review>();
   @Output() deleted = new EventEmitter<Review>();
@@ -123,6 +124,12 @@ export class ReviewCardComponent {
   get simpleStatusNote(): string {
     if (this.processing) {
       return 'We are still checking this review.';
+    }
+
+    if (!this.canManageReview) {
+      return this.review.isActive
+        ? 'This review is live on the store.'
+        : 'This review is currently being held for admin review.';
     }
 
     if (this.review.isActive) {

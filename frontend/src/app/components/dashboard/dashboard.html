@@ -5,25 +5,23 @@
         <div class="logo-ring"><span class="logo-letter">R</span></div>
         <div>
           <h1 class="brand-title">
-            <span class="muah">Review </span><span class="thin">Intelligence Hub</span>
+            @if (isSellerPortal) {
+              <span class="muah">{{ selectedSeller?.name ?? 'Seller' }}</span><span class="thin"> Workspace</span>
+            } @else {
+              <span class="muah">Review </span><span class="thin">Intelligence Hub</span>
+            }
           </h1>
-          <p class="brand-sub">Moderation and seller performance dashboard.</p>
+          <p class="brand-sub">{{ dashboardSubtitle }}</p>
         </div>
       </div>
 
       <div class="header-right">
-        <div class="header-pill">
-          <span class="pill-val">{{ reviews.length }}</span>
-          <span class="pill-lbl">Total Reviews</span>
-        </div>
-        <div class="header-pill gold">
-          <span class="pill-val">{{ averageRating | number:'1.1-1' }}<span class="star-sm">&#9733;</span></span>
-          <span class="pill-lbl">Network Rating</span>
-        </div>
-        <div class="header-pill green">
-          <span class="pill-val">{{ sellers.length }}</span>
-          <span class="pill-lbl">Active Sellers</span>
-        </div>
+        @for (stat of headerStats; track stat.label + stat.value) {
+          <div class="header-pill" [class.gold]="stat.tone === 'gold'" [class.green]="stat.tone === 'green'">
+            <span class="pill-val">{{ stat.value }}</span>
+            <span class="pill-lbl">{{ stat.label }}</span>
+          </div>
+        }
       </div>
     </div>
   </header>
@@ -31,30 +29,24 @@
   <main class="main">
     <section class="hero-panel">
       <div class="hero-copy">
-        <span class="hero-eyebrow">Overview</span>
-        <h2>Review moderation dashboard</h2>
-        <p>Monitor pipeline health, manage publishing, and review seller performance in one place.</p>
+        <span class="hero-eyebrow">{{ heroEyebrow }}</span>
+        <h2>{{ heroTitle }}</h2>
+        <p>{{ heroDescription }}</p>
 
         <div class="hero-highlights">
-          <div class="hero-highlight">
-            <strong>{{ products.length }}</strong>
-            <span>catalog products</span>
-          </div>
-          <div class="hero-highlight">
-            <strong>{{ pendingPipelineReviews.length }}</strong>
-            <span>needs review</span>
-          </div>
-          <div class="hero-highlight">
-            <strong>{{ publishedCount }}</strong>
-            <span>published live</span>
-          </div>
+          @for (highlight of heroHighlights; track highlight.label + highlight.value) {
+            <div class="hero-highlight">
+              <strong>{{ highlight.value }}</strong>
+              <span>{{ highlight.label }}</span>
+            </div>
+          }
         </div>
       </div>
 
       <div class="hero-actions">
         <div class="hero-note">
           <span class="hero-note-label">Live mode</span>
-          <strong>{{ activePortal === 'super-admin' ? 'Operations console' : 'Seller lens' }}</strong>
+          <strong>{{ liveModeLabel }}</strong>
         </div>
 
         <div class="portal-switch">
@@ -317,6 +309,7 @@
                   [processing]="isProcessingReview(review.id)"
                   [selectable]="true"
                   managementMode="simple"
+                  [canManageReview]="true"
                   (selectionChange)="toggleSelectOne(review.id)"
                   (togglePublish)="onTogglePublish($event)"
                   (blocked)="onBlockReview($event)"
@@ -500,9 +493,7 @@
                   [processing]="isProcessingReview(review.id)"
                   [selectable]="false"
                   managementMode="simple"
-                  (togglePublish)="onTogglePublish($event)"
-                  (blocked)="onBlockReview($event)"
-                  (deleted)="onDelete($event)"
+                  [canManageReview]="false"
                   (viewDetails)="onViewReviewDetails($event)"
                 />
               }

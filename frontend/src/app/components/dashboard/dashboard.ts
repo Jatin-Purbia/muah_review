@@ -36,6 +36,12 @@ interface CategoryTabStat {
   rating: number;
 }
 
+interface DashboardStat {
+  value: string;
+  label: string;
+  tone?: 'default' | 'gold' | 'green';
+}
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -168,6 +174,78 @@ export class DashboardComponent implements OnInit, OnDestroy {
       };
     }
     return seller;
+  }
+
+  get isSellerPortal(): boolean {
+    return this.activePortal === 'seller';
+  }
+
+  get dashboardTitle(): string {
+    return this.isSellerPortal
+      ? `${this.selectedSeller?.name ?? 'Seller'} review workspace`
+      : 'Review Intelligence Hub';
+  }
+
+  get dashboardSubtitle(): string {
+    return this.isSellerPortal
+      ? 'Track what customers are saying about your products in one place.'
+      : 'Moderation and seller performance dashboard.';
+  }
+
+  get headerStats(): DashboardStat[] {
+    if (this.isSellerPortal) {
+      return [
+        { value: `${this.sellerReviews.length}`, label: 'Your Reviews' },
+        { value: this.sellerAverageRatingDisplay, label: 'Your Rating', tone: 'gold' },
+        { value: `${this.sellerPublishedReviews.length}`, label: 'Live Reviews', tone: 'green' },
+      ];
+    }
+
+    return [
+      { value: `${this.reviews.length}`, label: 'Total Reviews' },
+      { value: `${this.averageRating.toFixed(1)}★`, label: 'Network Rating', tone: 'gold' },
+      { value: `${this.sellers.length}`, label: 'Active Sellers', tone: 'green' },
+    ];
+  }
+
+  get sellerAverageRatingDisplay(): string {
+    return `${(this.selectedSeller?.averageRating ?? 0).toFixed(1)}★`;
+  }
+
+  get heroEyebrow(): string {
+    return this.isSellerPortal ? 'Seller view' : 'Overview';
+  }
+
+  get heroTitle(): string {
+    return this.isSellerPortal
+      ? `${this.selectedSeller?.name ?? 'Seller'} review dashboard`
+      : 'Review moderation dashboard';
+  }
+
+  get heroDescription(): string {
+    return this.isSellerPortal
+      ? 'See the reviews tied to this seller, understand customer tone, and follow what is currently live or waiting on admin review.'
+      : 'Monitor pipeline health, manage publishing, and review seller performance in one place.';
+  }
+
+  get heroHighlights(): DashboardStat[] {
+    if (this.isSellerPortal) {
+      return [
+        { value: `${this.sellerReviews.length}`, label: 'total reviews' },
+        { value: `${this.sellerFlaggedReviews.length}`, label: 'awaiting admin review' },
+        { value: `${this.sellerPublishedReviews.length}`, label: 'live on store' },
+      ];
+    }
+
+    return [
+      { value: `${this.products.length}`, label: 'catalog products' },
+      { value: `${this.pendingPipelineReviews.length}`, label: 'needs review' },
+      { value: `${this.publishedCount}`, label: 'published live' },
+    ];
+  }
+
+  get liveModeLabel(): string {
+    return this.isSellerPortal ? 'Seller workspace' : 'Operations console';
   }
 
   get pipelineMetrics(): PipelineMetric[] {

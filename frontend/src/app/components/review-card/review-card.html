@@ -86,35 +86,37 @@
         Review details
       </button>
 
-      <button
-        class="action-btn"
-        [class.publish]="!review.isActive"
-        [class.unpublish]="review.isActive"
-        [disabled]="toggling || processing"
-        (click)="confirmPublish = true; $event.stopPropagation()"
-        [title]="review.isActive ? 'Move to moderation' : 'Publish review'"
-      >
-        {{ review.isActive ? 'Hide for now' : 'Publish review' }}
-      </button>
-
-      @if (!isSimpleMode) {
+      @if (canManageReview) {
         <button
-          class="action-btn block"
-          title="Block review"
-          [disabled]="processing || review.pipelineStatus === 'blocked'"
-          (click)="confirmBlock = true; $event.stopPropagation()"
+          class="action-btn"
+          [class.publish]="!review.isActive"
+          [class.unpublish]="review.isActive"
+          [disabled]="toggling || processing"
+          (click)="confirmPublish = true; $event.stopPropagation()"
+          [title]="review.isActive ? 'Move to moderation' : 'Publish review'"
         >
-          Block
+          {{ review.isActive ? 'Hide for now' : 'Publish review' }}
         </button>
 
-        <button
-          class="action-btn delete"
-          title="Delete review"
-          [disabled]="processing"
-          (click)="confirmDelete = true; $event.stopPropagation()"
-        >
-          Delete
-        </button>
+        @if (!isSimpleMode) {
+          <button
+            class="action-btn block"
+            title="Block review"
+            [disabled]="processing || review.pipelineStatus === 'blocked'"
+            (click)="confirmBlock = true; $event.stopPropagation()"
+          >
+            Block
+          </button>
+
+          <button
+            class="action-btn delete"
+            title="Delete review"
+            [disabled]="processing"
+            (click)="confirmDelete = true; $event.stopPropagation()"
+          >
+            Delete
+          </button>
+        }
       }
     } @else if (confirmPublish) {
       <div class="confirm-prompt">
