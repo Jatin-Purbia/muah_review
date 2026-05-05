@@ -84,6 +84,39 @@ interface BackendProduct {
   review_avg: number;
 }
 
+interface ReviewPager {
+  totalItems: number;
+  currentPage: number;
+  numberPerPage: number;
+  totalPages: number;
+}
+
+interface ReviewSummaryPayload {
+  total_reviews: number;
+  published_count: number;
+  unpublished_count: number;
+  average_rating: number;
+  rating_distribution: Array<{ star: number; count: number }>;
+  category_stats: SiteCategoryReview[];
+}
+
+interface BackendAdminReviewPage {
+  data: BackendReviewDetail[];
+  pager: ReviewPager;
+  summary: ReviewSummaryPayload;
+}
+
+interface BackendSellerReviewPage {
+  data: BackendSellerReviewInsight[];
+  pager: ReviewPager;
+}
+
+export interface ReviewPageResult {
+  reviews: Review[];
+  pager: ReviewPager;
+  summary?: ReviewSummaryPayload;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ReviewService {
   constructor(private http: HttpClient) {}
@@ -179,7 +212,8 @@ export class ReviewService {
   }
 
   search(filter: SiteReviewFilter = {}): Observable<SiteReviewSearchResult> {
-    return this.getReviews().pipe(
+    return this.getReviewsPage().pipe(
+      map((payload) => payload.reviews),
       map((reviews) => {
         const payload: SiteReviewFilter = { currentPage: 1, numberPerPage: 500, ...filter };
         let filtered = [...reviews];
@@ -213,17 +247,47 @@ export class ReviewService {
     return this.search({ ...filter, isActive: false });
   }
 
-  getReviews(): Observable<Review[]> {
-    return this.http.get<BackendReviewDetail[]>(`${BACKEND_URL}/admin/reviews`).pipe(
-      map((reviews) => reviews.map((review) => this.mapBackendReview(review))),
-      map((reviews) => [...reviews].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
+  getReviewsPage(params?: {
+    page?: number;
+    pageSize?: number;
+    status?: 'all' | 'published' | 'unpublished';
+    search?: string;
+    rating?: number;
+    category?: string | null;
+  }): Observable<ReviewPageResult> {
+    const query = new URLSearchParams();
+    query.set('page', String(params?.page ?? 1));
+    query.set('page_size', String(params?.pageSize ?? 12));
+    query.set('status', params?.status ?? 'all');
+    if (params?.search?.trim()) query.set('search', params.search.trim());
+    if ((params?.rating ?? 0) > 0) query.set('rating', String(params?.rating));
+    if (params?.category?.trim()) query.set('category', params.category.trim());
+
+    return this.http.get<BackendAdminReviewPage>(`${BACKEND_URL}/admin/reviews?${query.toString()}`).pipe(
+      map((payload) => ({
+        reviews: payload.data.map((review) => this.mapBackendReview(review)),
+        pager: payload.pager,
+        summary: payload.summary,
+      }))
     );
   }
 
-  getSellerReviews(sellerId: string): Observable<Review[]> {
-    return this.http.get<BackendSellerReviewInsight[]>(`${BACKEND_URL}/seller/${sellerId}/reviews`).pipe(
-      map((reviews) => reviews.map((review) => this.mapSellerReview(review))),
-      map((reviews) => [...reviews].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
+  getReviewQueue(limit = 20): Observable<Review[]> {
+    return this.http.get<BackendReviewDetail[]>(`${BACKEND_URL}/admin/reviews/queue?limit=${limit}`).pipe(
+      map((reviews) => reviews.map((review) => this.mapBackendReview(review)))
+    );
+  }
+
+  getReviewSummary(): Observable<ReviewSummaryPayload> {
+    return this.http.get<ReviewSummaryPayload>(`${BACKEND_URL}/admin/reviews/summary`);
+  }
+
+  getSellerReviews(sellerId: string, page = 1, pageSize = 12): Observable<ReviewPageResult> {
+    return this.http.get<BackendSellerReviewPage>(`${BACKEND_URL}/seller/${sellerId}/reviews?page=${page}&page_size=${pageSize}`).pipe(
+      map((payload) => ({
+        reviews: payload.data.map((review) => this.mapSellerReview(review)),
+        pager: payload.pager,
+      }))
     );
   }
 
@@ -232,26 +296,14 @@ export class ReviewService {
   }
 
   getStatistics(): Observable<SiteCategoryReview[]> {
-    return this.getReviews().pipe(
-      map((reviews) => REVIEW_CATEGORIES.map((category, index) => {
-        const normalizedCategory = category.toLowerCase();
-        const reviewsForCategory = reviews.filter((review) => {
-          const reviewCategory = (review.category || review.reviewCategory || '').trim().toLowerCase();
-          return reviewCategory === normalizedCategory;
-        });
-        const reviewCount = reviewsForCategory.length;
-        const rating = reviewCount
-          ? reviewsForCategory.reduce((sum, review) => sum + (review.starRating ?? 0), 0) / reviewCount
-          : 0;
-
-        return {
-          id: index + 1,
-          category,
-          reviewerCount: reviewCount,
-          reviewCount,
-          rating: Number(rating.toFixed(1)),
-        };
-      }))
+    return this.getReviewSummary().pipe(
+      map((summary) => summary.category_stats ?? REVIEW_CATEGORIES.map((category, index) => ({
+        id: index + 1,
+        category,
+        reviewerCount: 0,
+        reviewCount: 0,
+        rating: 0,
+      })))
     );
   }
 

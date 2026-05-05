@@ -160,7 +160,7 @@
               </div>
             </div>
 
-            <div class="queue-list">
+            <div class="queue-list queue-list-scrollable">
               @for (review of pendingPipelineReviews; track review.id) {
                 <div class="queue-item" [class.warn]="review.pipelineStatus === 'manual-review'" [class.danger]="review.pipelineStatus === 'blocked'">
                   <div class="queue-main">
@@ -181,7 +181,7 @@
       </section>
 
       <app-stats-bar
-        [totalReviews]="reviews.length"
+        [totalReviews]="reviewSummary.total_reviews"
         [publishedCount]="publishedCount"
         [unpublishedCount]="unpublishedCount"
         [averageRating]="averageRating"
@@ -195,7 +195,7 @@
           <div class="cat-tabs">
             <button class="cat-tab" [class.active]="selectedCategoryKey === null" (click)="selectCategoryKey(null)">
               <span class="cat-name">All Reviews</span>
-              <span class="cat-count">{{ reviews.length }}</span>
+              <span class="cat-count">{{ reviewSummary.total_reviews }}</span>
               <span class="cat-rating">{{ averageRating | number:'1.1-1' }}&#9733;</span>
             </button>
             @for (stat of categoryTabs; track stat.id) {
@@ -231,7 +231,7 @@
               Live <span class="tab-count">{{ publishedCount }}</span>
             </button>
             <button class="tab" [class.active]="publishFilter === 'all'" (click)="setPublishFilter('all')">
-              All reviews <span class="tab-count">{{ reviews.length }}</span>
+              All reviews <span class="tab-count">{{ reviewSummary.total_reviews }}</span>
             </button>
           </div>
 
@@ -252,7 +252,7 @@
             @if (searchQuery || selectedCategoryKey || selectedRating > 0) {
               <button class="btn-clear" (click)="clearFilters()">Clear</button>
             }
-            <span class="result-count">{{ filteredReviews.length }} reviews</span>
+            <span class="result-count">{{ reviewPager.totalItems }} reviews</span>
           </div>
         </div>
 
@@ -293,7 +293,7 @@
             }
           </div>
         } @else {
-          @if (filteredReviews.length > 0) {
+            @if (filteredReviews.length > 0) {
             <div class="reviews-grid">
               <div class="select-all-row">
                 <label class="select-check">
@@ -302,7 +302,7 @@
                 </label>
                 <span class="select-all-label">{{ allSelected ? 'Deselect all' : 'Select all on this page' }}</span>
               </div>
-              @for (review of filteredReviews; track review.id) {
+              @for (review of pagedFilteredReviews; track review.id) {
                 <app-review-card
                   [review]="review"
                   [selected]="isSelected(review.id)"
@@ -317,6 +317,18 @@
                   (viewDetails)="onViewReviewDetails($event)"
                 />
               }
+            </div>
+            <div class="pagination-bar reviews-pagination">
+              <button class="pagination-btn" (click)="previousAdminReviewPage()" [disabled]="adminReviewPage === 1">
+                Previous
+              </button>
+              <div class="pagination-status">
+                <strong>{{ adminReviewRangeStart }}-{{ adminReviewRangeEnd }}</strong>
+                <span>of {{ reviewPager.totalItems }} reviews</span>
+              </div>
+              <button class="pagination-btn" (click)="nextAdminReviewPage()" [disabled]="adminReviewPage === adminReviewTotalPages">
+                Next
+              </button>
             </div>
           } @else {
               <div class="empty-state">
@@ -372,7 +384,7 @@
           <div class="seller-summary-card">
             <span class="metric-label">Total Reviews</span>
             <strong class="metric-value">{{ selectedSeller?.totalReviews ?? 0 }}</strong>
-            <span class="metric-note">{{ sellerPublishedReviews.length }} published</span>
+            <span class="metric-note">{{ sellerPublishedCount }} published</span>
           </div>
           <div class="seller-summary-card">
             <span class="metric-label">Avg Rating</span>
@@ -505,9 +517,9 @@
             </div>
           </div>
 
-          @if (sellerReviews.length > 0) {
+          @if (sellerReviewPager.totalItems > 0) {
             <div class="reviews-grid">
-              @for (review of sellerReviews; track review.id) {
+              @for (review of pagedSellerReviews; track review.id) {
                 <app-review-card
                   [review]="review"
                   [selected]="false"
@@ -518,6 +530,18 @@
                   (viewDetails)="onViewReviewDetails($event)"
                 />
               }
+            </div>
+            <div class="pagination-bar reviews-pagination">
+              <button class="pagination-btn" (click)="previousSellerReviewPage()" [disabled]="sellerReviewPage === 1">
+                Previous
+              </button>
+              <div class="pagination-status">
+                <strong>{{ sellerReviewRangeStart }}-{{ sellerReviewRangeEnd }}</strong>
+                <span>of {{ sellerReviewPager.totalItems }} reviews</span>
+              </div>
+              <button class="pagination-btn" (click)="nextSellerReviewPage()" [disabled]="sellerReviewPage === sellerReviewTotalPages">
+                Next
+              </button>
             </div>
           } @else {
             <div class="empty-state compact">

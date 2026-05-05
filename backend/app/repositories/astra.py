@@ -95,6 +95,40 @@ class AstraRepository:
         self._save_review_document(document)
         return review
 
+    def list_review_documents(self) -> list[dict[str, Any]]:
+        return [
+            document
+            for document in self.reviews.find({"doc_type": "review"})
+            if not document.get("review", {}).get("is_deleted", False)
+        ]
+
+    def find_review_documents(
+        self,
+        review_filter: dict[str, Any] | None = None,
+        *,
+        projection: dict[str, Any] | None = None,
+        skip: int = 0,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        filter_doc: dict[str, Any] = {"doc_type": "review", "review.is_deleted": False}
+        if review_filter:
+            filter_doc.update(review_filter)
+        return list(
+            self.reviews.find(
+                filter_doc,
+                projection=projection,
+                sort={"review.created_at": -1},
+                skip=skip,
+                limit=limit,
+            )
+        )
+
+    def count_review_documents(self, review_filter: dict[str, Any] | None = None) -> int:
+        filter_doc: dict[str, Any] = {"doc_type": "review", "review.is_deleted": False}
+        if review_filter:
+            filter_doc.update(review_filter)
+        return self.reviews.count_documents(filter_doc, upper_bound=100000)
+
     def list_reviews(self) -> list[Review]:
         return [
             review

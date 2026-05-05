@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timezone
+from typing import Any
 
 from app.models.domain import (
     ModerationConfig,
@@ -31,6 +32,63 @@ class InMemoryRepository(ReviewRepository):
     def save_review(self, review: Review) -> Review:
         self.reviews[review.id] = review
         return review
+
+    def list_review_documents(self) -> list[dict[str, Any]]:
+        documents: list[dict[str, Any]] = []
+        for review in self.reviews.values():
+            if review.is_deleted:
+                continue
+            documents.append(
+                {
+                    "_id": review.id,
+                    "doc_type": "review",
+                    "review": review.model_dump(mode="json"),
+                    "media": [
+                        media.model_dump(mode="json")
+                        for media in self.review_media.values()
+                        if media.review_id == review.id
+                    ],
+                    "text_analysis": self.text_analysis.get(review.id).model_dump(mode="json")
+                    if self.text_analysis.get(review.id)
+                    else None,
+                    "image_analysis": [],
+                    "video_analysis": [],
+                    "fusion_decision": self.fusion_decisions.get(review.id).model_dump(mode="json")
+                    if self.fusion_decisions.get(review.id)
+                    else None,
+                    "logs": [log.model_dump(mode="json") for log in self.logs.get(review.id, [])],
+                }
+            )
+        return documents
+
+    def find_review_documents(
+        self,
+        review_filter: dict[str, Any] | None = None,
+        *,
+        skip: int = 0,
+        limit: int | None = None,
+        sort_desc: bool = True,
+    ) -> list[dict[str, Any]]:
+        documents = self.list_review_documents()
+
+        def matches(document: dict[str, Any]) -> bool:
+            if not review_filter:
+                return True
+            review = document.get("review", {})
+            for key, expected in review_filter.items():
+                if key.startswith("review."):
+                    field = key.split(".", 1)[1]
+                    if review.get(field) != expected:
+                        return False
+            return True
+
+        filtered = [document for document in documents if matches(document)]
+        filtered.sort(key=lambda document: document.get("review", {}).get("created_at", ""), reverse=sort_desc)
+        if skip:
+            filtered = filtered[skip:]
+        if limit is not None:
+            filtered = filtered[:limit]
+        return filtered
 
     def list_reviews(self) -> list[Review]:
         return [review for review in self.reviews.values() if not review.is_deleted]

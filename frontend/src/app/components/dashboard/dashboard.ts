@@ -42,6 +42,22 @@ interface DashboardStat {
   tone?: 'default' | 'gold' | 'green';
 }
 
+interface ReviewPager {
+  totalItems: number;
+  currentPage: number;
+  numberPerPage: number;
+  totalPages: number;
+}
+
+interface ReviewSummaryState {
+  total_reviews: number;
+  published_count: number;
+  unpublished_count: number;
+  average_rating: number;
+  rating_distribution: { star: number; count: number }[];
+  category_stats: SiteCategoryReview[];
+}
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -54,8 +70,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
   products: ProductCatalogItem[] = [];
   reviews: Review[] = [];
   sellerPortalReviews: Review[] = [];
+  queueReviews: Review[] = [];
   filteredReviews: Review[] = [];
   categoryStats: SiteCategoryReview[] = [];
+  reviewPager: ReviewPager = { totalItems: 0, currentPage: 1, numberPerPage: 12, totalPages: 1 };
+  sellerReviewPager: ReviewPager = { totalItems: 0, currentPage: 1, numberPerPage: 12, totalPages: 1 };
+  reviewSummary: ReviewSummaryState = {
+    total_reviews: 0,
+    published_count: 0,
+    unpublished_count: 0,
+    average_rating: 0,
+    rating_distribution: [],
+    category_stats: [],
+  };
   loading = false;
   error = '';
   searchQuery = '';
@@ -73,6 +100,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   reviewSubmitError = '';
   productPage = 1;
   readonly productPageSize = 12;
+  adminReviewPage = 1;
+  sellerReviewPage = 1;
+  readonly reviewPageSize = 12;
   processingReviewIds = new Set<string>();
   private processingPollTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -120,12 +150,52 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return Math.min(this.productPage * this.productPageSize, this.products.length);
   }
 
+  get adminReviewTotalPages(): number {
+    return this.reviewPager.totalPages;
+  }
+
+  get pagedFilteredReviews(): Review[] {
+    return this.filteredReviews;
+  }
+
+  get adminReviewRangeStart(): number {
+    return this.reviewPager.totalItems ? (this.reviewPager.currentPage - 1) * this.reviewPager.numberPerPage + 1 : 0;
+  }
+
+  get adminReviewRangeEnd(): number {
+    return Math.min(this.reviewPager.currentPage * this.reviewPager.numberPerPage, this.reviewPager.totalItems);
+  }
+
+  get sellerReviewTotalPages(): number {
+    return this.sellerReviewPager.totalPages;
+  }
+
+  get pagedSellerReviews(): Review[] {
+    return this.sellerReviews;
+  }
+
+  get sellerReviewRangeStart(): number {
+    return this.sellerReviewPager.totalItems ? (this.sellerReviewPager.currentPage - 1) * this.sellerReviewPager.numberPerPage + 1 : 0;
+  }
+
+  get sellerReviewRangeEnd(): number {
+    return Math.min(this.sellerReviewPager.currentPage * this.sellerReviewPager.numberPerPage, this.sellerReviewPager.totalItems);
+  }
+
   get sellerPublishedReviews(): Review[] {
     return this.sellerReviews.filter((review) => review.isActive);
   }
 
+  get sellerPublishedCount(): number {
+    return this.sellerAnalytics?.published_reviews ?? this.sellerPublishedReviews.length;
+  }
+
   get sellerFlaggedReviews(): Review[] {
     return this.sellerReviews.filter((review) => review.pipelineStatus !== 'approved');
+  }
+
+  get sellerPendingCount(): number {
+    return this.sellerAnalytics?.pending_reviews ?? this.sellerFlaggedReviews.length;
   }
 
   get sellers(): SellerSummary[] {
@@ -139,15 +209,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     return [...groups.entries()].map(([sellerId, sellerProducts]) => {
       const sellerReviews = this.reviews.filter((review) => review.sellerId === sellerId);
-      const totalReviews = sellerReviews.length;
+      const totalReviews = sellerProducts.reduce((sum, product) => sum + (product.reviewCount ?? 0), 0);
+      const weightedRatingTotal = sellerProducts.reduce((sum, product) => sum + ((product.reviewAvg ?? 0) * (product.reviewCount ?? 0)), 0);
+      const averageRating = totalReviews ? weightedRatingTotal / totalReviews : 0;
       const publishedReviews = sellerReviews.filter((review) => review.isActive).length;
-      const averageRating = totalReviews ? sellerReviews.reduce((sum, review) => sum + (review.starRating ?? 0), 0) / totalReviews : 0;
-      const positiveShare = totalReviews
-        ? Math.round((sellerReviews.filter((review) => (review.sentimentScore ?? 0) >= 70).length / totalReviews) * 100)
-        : 0;
-      const satisfaction = totalReviews
-        ? Math.round(sellerReviews.reduce((sum, review) => sum + (review.sentimentScore ?? 0), 0) / totalReviews)
-        : 0;
+      const positiveShare = 0;
+      const satisfaction = Math.round(averageRating * 20);
 
       return {
         id: sellerId,
@@ -197,14 +264,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
   get headerStats(): DashboardStat[] {
     if (this.isSellerPortal) {
       return [
-        { value: `${this.sellerReviews.length}`, label: 'Your Reviews' },
+        { value: `${this.sellerReviewPager.totalItems}`, label: 'Your Reviews' },
         { value: this.sellerAverageRatingDisplay, label: 'Your Rating', tone: 'gold' },
-        { value: `${this.sellerPublishedReviews.length}`, label: 'Live Reviews', tone: 'green' },
+        { value: `${this.sellerPublishedCount}`, label: 'Live Reviews', tone: 'green' },
       ];
     }
 
     return [
-      { value: `${this.reviews.length}`, label: 'Total Reviews' },
+      { value: `${this.reviewSummary.total_reviews}`, label: 'Total Reviews' },
       { value: `${this.averageRating.toFixed(1)}★`, label: 'Network Rating', tone: 'gold' },
       { value: `${this.sellers.length}`, label: 'Active Sellers', tone: 'green' },
     ];
@@ -233,9 +300,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   get heroHighlights(): DashboardStat[] {
     if (this.isSellerPortal) {
       return [
-        { value: `${this.sellerReviews.length}`, label: 'total reviews' },
-        { value: `${this.sellerFlaggedReviews.length}`, label: 'awaiting admin review' },
-        { value: `${this.sellerPublishedReviews.length}`, label: 'live on store' },
+        { value: `${this.sellerReviewPager.totalItems}`, label: 'total reviews' },
+        { value: `${this.sellerPendingCount}`, label: 'awaiting admin review' },
+        { value: `${this.sellerPublishedCount}`, label: 'live on store' },
       ];
     }
 
@@ -251,10 +318,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   get pipelineMetrics(): PipelineMetric[] {
-    const totalPublished = this.reviews.filter((review) => review.isActive).length;
-    const approved = this.reviews.filter((review) => review.pipelineStatus === 'approved').length;
-    const manualReview = this.reviews.filter((review) => review.pipelineStatus === 'manual-review').length;
-    const blocked = this.reviews.filter((review) => review.pipelineStatus === 'blocked').length;
+    const totalPublished = this.reviewSummary.published_count;
+    const approved = totalPublished;
+    const manualReview = this.queueReviews.filter((review) => review.pipelineStatus === 'manual-review').length;
+    const blocked = this.queueReviews.filter((review) => review.pipelineStatus === 'blocked').length;
 
     return [
       { label: 'Pipeline automation', value: this.pipelineAutomationEnabled ? 'On' : 'Off', note: `Threshold ${this.automationThreshold}`, tone: this.pipelineAutomationEnabled ? 'good' : 'warn' },
@@ -265,28 +332,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   get pendingPipelineReviews(): Review[] {
-    return this.reviews
-      .filter((review) => review.pipelineStatus === 'manual-review' || review.pipelineStatus === 'blocked')
-      .sort((a, b) => (a.pipelineScore ?? 0) - (b.pipelineScore ?? 0));
+    return this.queueReviews;
   }
 
   get categoryTabs(): CategoryTabStat[] {
-    return this.reviewCategories.map((category, index) => {
-      const key = category.toLowerCase();
-      const reviewsForCategory = this.reviews.filter((review) => {
-        const reviewCategory = (review.category || review.reviewCategory || '').trim().toLowerCase();
-        return reviewCategory === key;
-      });
-      const reviewerCount = reviewsForCategory.length;
-      const rating = reviewerCount
-        ? reviewsForCategory.reduce((sum, review) => sum + (review.starRating ?? 0), 0) / reviewerCount
-        : 0;
-
+    return this.categoryStats.map((stat, index) => {
       return {
         id: `fallback-${index}`,
-        category,
-        reviewerCount,
-        rating,
+        category: stat.category,
+        reviewerCount: stat.reviewerCount ?? 0,
+        rating: stat.rating ?? 0,
       };
     });
   }
@@ -349,7 +404,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   get sellerStatusCards(): { title: string; body: string; tone: 'good' | 'warn' | 'danger' }[] {
-    const pending = this.sellerAnalytics?.pending_reviews ?? this.sellerFlaggedReviews.length;
+    const pending = this.sellerPendingCount;
     const flagged = this.sellerAnalytics?.flagged_reviews ?? this.sellerReviews.filter((review) => review.pipelineStatus === 'blocked').length;
     const live = this.sellerAnalytics?.published_reviews ?? this.sellerPublishedReviews.length;
     const cards: { title: string; body: string; tone: 'good' | 'warn' | 'danger' }[] = [
@@ -387,8 +442,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadProducts();
+    this.loadReviewSummary();
+    this.loadQueueReviews();
     this.loadReviews();
-    this.loadStatistics();
   }
 
   ngOnDestroy(): void {
@@ -415,10 +471,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   loadStatistics(): void {
-    this.reviewService.getStatistics().subscribe({
-      next: (data) => { this.categoryStats = (data || []).filter((stat) => !!stat.category); },
-      error: () => { /* non-critical */ },
-    });
+    this.categoryStats = (this.reviewSummary.category_stats || []).filter((stat) => !!stat.category);
   }
 
   toggleSellerDropdown(event: MouseEvent): void {
@@ -429,6 +482,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   selectSeller(id: string): void {
     if (id !== this.selectedSellerId) {
       this.selectedSellerId = id;
+      this.sellerReviewPage = 1;
       this.loadSellerAnalytics();
     }
     this.sellerDropdownOpen = false;
@@ -449,6 +503,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.sellerTrends = [];
     this.sellerAspects = [];
     this.sellerPortalReviews = [];
+    this.sellerReviewPager = { totalItems: 0, currentPage: this.sellerReviewPage, numberPerPage: this.reviewPageSize, totalPages: 1 };
     this.analyticsService.getSummary(this.selectedSellerId).subscribe({
       next: (summary) => { this.sellerAnalytics = summary; },
       error: () => { this.sellerAnalytics = null; },
@@ -469,19 +524,34 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.sellerPortalReviews = [];
       return;
     }
-    this.reviewService.getSellerReviews(this.selectedSellerId).subscribe({
-      next: (reviews) => { this.sellerPortalReviews = reviews; },
-      error: () => { this.sellerPortalReviews = []; },
+    this.reviewService.getSellerReviews(this.selectedSellerId, this.sellerReviewPage, this.reviewPageSize).subscribe({
+      next: (payload) => {
+        this.sellerPortalReviews = payload.reviews;
+        this.sellerReviewPager = payload.pager;
+      },
+      error: () => {
+        this.sellerPortalReviews = [];
+        this.sellerReviewPager = { totalItems: 0, currentPage: this.sellerReviewPage, numberPerPage: this.reviewPageSize, totalPages: 1 };
+      },
     });
   }
 
   loadReviews(): void {
     this.loading = true;
     this.error = '';
-    this.reviewService.getReviews().subscribe({
-      next: (data) => {
-        this.reviews = data;
-        const loadedIds = new Set(data.map((review) => review.id));
+    this.reviewService.getReviewsPage({
+      page: this.adminReviewPage,
+      pageSize: this.reviewPageSize,
+      status: this.publishFilter,
+      search: this.searchQuery,
+      rating: this.selectedRating,
+      category: this.selectedCategoryKey,
+    }).subscribe({
+      next: (payload) => {
+        this.reviews = payload.reviews;
+        this.filteredReviews = payload.reviews;
+        this.reviewPager = payload.pager;
+        const loadedIds = new Set(payload.reviews.map((review) => review.id));
         for (const reviewId of [...this.processingReviewIds]) {
           if (!loadedIds.has(reviewId)) {
             this.processingReviewIds.delete(reviewId);
@@ -491,7 +561,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
         if (!this.sellers.find((seller) => seller.id === this.selectedSellerId) && this.sellers[0]) {
           this.selectedSellerId = this.sellers[0].id;
         }
-        this.applyFilters();
         this.loadSellerAnalytics();
         this.loading = false;
       },
@@ -502,38 +571,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadReviewSummary(): void {
+    this.reviewService.getReviewSummary().subscribe({
+      next: (summary) => {
+        this.reviewSummary = summary;
+        this.categoryStats = (summary.category_stats || []).filter((stat) => !!stat.category);
+      },
+      error: () => {
+        this.reviewSummary = {
+          total_reviews: 0,
+          published_count: 0,
+          unpublished_count: 0,
+          average_rating: 0,
+          rating_distribution: [],
+          category_stats: [],
+        };
+        this.categoryStats = [];
+      },
+    });
+  }
+
   applyFilters(): void {
-    let result = [...this.reviews];
-
-    if (this.publishFilter === 'published') {
-      result = result.filter((review) => review.isActive);
-    } else if (this.publishFilter === 'unpublished') {
-      result = result.filter((review) => !review.isActive);
-    }
-
-    if (this.searchQuery.trim()) {
-      const query = this.searchQuery.toLowerCase();
-      result = result.filter((review) =>
-        (review.title || '').toLowerCase().includes(query) ||
-        (review.description || '').toLowerCase().includes(query) ||
-        (review.sellerName || '').toLowerCase().includes(query) ||
-        (review.productName || '').toLowerCase().includes(query)
-      );
-    }
-
-    if (this.selectedRating > 0) {
-      const star = Number(this.selectedRating);
-      result = result.filter((review) => review.starRating === star);
-    }
-
-    if (this.selectedCategoryKey) {
-      result = result.filter((review) => {
-        const reviewCategory = (review.category || review.reviewCategory || '').trim().toLowerCase();
-        return reviewCategory === this.selectedCategoryKey;
-      });
-    }
-
-    this.filteredReviews = result;
+    this.loadReviews();
   }
 
   setPortal(view: PortalView): void {
@@ -551,36 +610,34 @@ export class DashboardComponent implements OnInit, OnDestroy {
   selectCategoryKey(key: string | null): void {
     this.selectedCategoryKey = key ? key.toLowerCase() : null;
     this.selectedCategory = '';
+    this.adminReviewPage = 1;
     this.applyFilters();
   }
 
   setPublishFilter(filter: PublishFilter): void {
     this.publishFilter = filter;
+    this.adminReviewPage = 1;
     this.applyFilters();
   }
 
   isSelected(id: string): boolean { return this.selectedIds.has(id); }
 
-  get publishedCount(): number { return this.reviews.filter((review) => review.isActive).length; }
-  get unpublishedCount(): number { return this.reviews.filter((review) => !review.isActive).length; }
+  get publishedCount(): number { return this.reviewSummary.published_count; }
+  get unpublishedCount(): number { return this.reviewSummary.unpublished_count; }
   get needsActionCount(): number {
-    return this.reviews.filter((review) => !review.isActive).length;
+    return this.reviewSummary.unpublished_count;
   }
 
   get categories(): string[] {
-    return [...new Set(this.reviews.map((review) => review.productName).filter(Boolean) as string[])];
+    return this.categoryStats.map((stat) => stat.category);
   }
 
   get averageRating(): number {
-    if (!this.reviews.length) return 0;
-    return this.reviews.reduce((sum, review) => sum + (review.starRating ?? 0), 0) / this.reviews.length;
+    return this.reviewSummary.average_rating;
   }
 
   get ratingDistribution(): { star: number; count: number }[] {
-    return [5, 4, 3, 2, 1].map((star) => ({
-      star,
-      count: this.reviews.filter((review) => review.starRating === star).length,
-    }));
+    return this.reviewSummary.rating_distribution;
   }
 
   clearFilters(): void {
@@ -588,6 +645,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.selectedCategory = '';
     this.selectedCategoryKey = null;
     this.selectedRating = 0;
+    this.adminReviewPage = 1;
     this.applyFilters();
   }
 
@@ -603,7 +661,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
             }
           : review
         );
-        this.applyFilters();
+        this.loadReviews();
+        this.loadReviewSummary();
         this.loadSellerAnalytics();
         this.showToast(response.isActive ? 'Review published to website.' : 'Review moved back to moderation.', 'success');
       },
@@ -615,9 +674,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   toggleSelectAll(): void {
     if (this.allSelected) {
-      this.filteredReviews.forEach((review) => this.selectedIds.delete(review.id));
+      this.pagedFilteredReviews.forEach((review) => this.selectedIds.delete(review.id));
     } else {
-      this.filteredReviews.forEach((review) => this.selectedIds.add(review.id));
+      this.pagedFilteredReviews.forEach((review) => this.selectedIds.add(review.id));
     }
   }
 
@@ -642,6 +701,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       next: () => {
         this.selectedIds.clear();
         this.loadReviews();
+        this.loadReviewSummary();
+        this.loadQueueReviews();
         this.bulkLoading = false;
         this.activeBulkAction = null;
         this.showToast(`${ids.length} review(s) published.`, 'success');
@@ -662,6 +723,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       next: () => {
         this.selectedIds.clear();
         this.loadReviews();
+        this.loadReviewSummary();
+        this.loadQueueReviews();
         this.bulkLoading = false;
         this.activeBulkAction = null;
         this.showToast(`${ids.length} review(s) moved to moderation.`, 'success');
@@ -683,6 +746,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.reviews = this.reviews.filter((review) => !ids.includes(review.id));
         this.selectedIds.clear();
         this.applyFilters();
+        this.loadReviewSummary();
+        this.loadQueueReviews();
         this.bulkLoading = false;
         this.activeBulkAction = null;
         this.showToast(`${ids.length} review(s) deleted.`, 'success');
@@ -698,8 +763,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   onDelete(review: Review): void {
     this.reviewService.deleteReview(review.id).subscribe({
       next: () => {
-        this.reviews = this.reviews.filter((item) => item.id !== review.id);
-        this.applyFilters();
+        this.loadReviews();
+        this.loadReviewSummary();
+        this.loadQueueReviews();
         this.showToast('Review deleted successfully.', 'success');
       },
       error: () => {
@@ -727,8 +793,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.reviews = [enrichedReview, ...this.reviews.filter((review) => review.id !== enrichedReview.id)];
         this.processingReviewIds.add(enrichedReview.id);
         this.applyFilters();
+        this.loadReviewSummary();
         this.loadSellerAnalytics();
-        this.loadStatistics();
 
         this.reviewSubmitting = false;
         this.showModal = false;
@@ -794,6 +860,36 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
+  previousAdminReviewPage(): void {
+    if (this.adminReviewPage > 1) {
+      this.adminReviewPage -= 1;
+      this.clearSelection();
+      this.loadReviews();
+    }
+  }
+
+  nextAdminReviewPage(): void {
+    if (this.adminReviewPage < this.adminReviewTotalPages) {
+      this.adminReviewPage += 1;
+      this.clearSelection();
+      this.loadReviews();
+    }
+  }
+
+  previousSellerReviewPage(): void {
+    if (this.sellerReviewPage > 1) {
+      this.sellerReviewPage -= 1;
+      this.loadSellerPortalReviews();
+    }
+  }
+
+  nextSellerReviewPage(): void {
+    if (this.sellerReviewPage < this.sellerReviewTotalPages) {
+      this.sellerReviewPage += 1;
+      this.loadSellerPortalReviews();
+    }
+  }
+
   openReviewModal(product?: ProductCatalogItem): void {
     if (!product) {
       this.error = 'Choose Write Review on a product card so the product and seller are selected automatically.';
@@ -827,7 +923,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
         );
         this.applyFilters();
         this.loadSellerAnalytics();
-        this.loadStatistics();
 
         if (review.pipelineStatus === 'pending' && attempt < 20) {
           const timer = setTimeout(() => this.startProcessingPoll(reviewId, attempt + 1), 1200);
@@ -878,7 +973,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
             : review;
         });
         this.selectedIds.clear();
-        this.applyFilters();
+        this.loadReviews();
+        this.loadReviewSummary();
+        this.loadQueueReviews();
         this.loadSellerAnalytics();
         this.bulkLoading = false;
         this.activeBulkAction = null;
@@ -905,7 +1002,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
             }
           : item
         );
-        this.applyFilters();
+        this.loadReviews();
+        this.loadReviewSummary();
+        this.loadQueueReviews();
         this.loadSellerAnalytics();
         this.showToast('Review blocked by super admin.', 'success');
       },
@@ -921,5 +1020,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
       clearTimeout(timer);
       this.processingPollTimers.delete(reviewId);
     }
+  }
+
+  private loadQueueReviews(): void {
+    this.reviewService.getReviewQueue().subscribe({
+      next: (reviews) => { this.queueReviews = reviews; },
+      error: () => { this.queueReviews = []; },
+    });
   }
 }
