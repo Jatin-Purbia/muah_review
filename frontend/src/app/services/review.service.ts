@@ -12,6 +12,7 @@ import {
   SiteCategoryReview,
   RatingBreakdown,
   RATING_CONFIG,
+  PublishFilter,
 } from '../models/review.model';
 import { environment } from '../../environments/environment';
 
@@ -95,15 +96,25 @@ interface ReviewSummaryPayload {
   total_reviews: number;
   published_count: number;
   unpublished_count: number;
+  moderation_count?: number;
+  blocked_count?: number;
   average_rating: number;
   rating_distribution: Array<{ star: number; count: number }>;
   category_stats: SiteCategoryReview[];
+}
+
+export interface ReviewStatusCounts {
+  total: number;
+  published: number;
+  moderation: number;
+  blocked: number;
 }
 
 interface BackendAdminReviewPage {
   data: BackendReviewDetail[];
   pager: ReviewPager;
   summary: ReviewSummaryPayload;
+  status_counts?: ReviewStatusCounts;
 }
 
 interface BackendSellerReviewPage {
@@ -115,6 +126,7 @@ export interface ReviewPageResult {
   reviews: Review[];
   pager: ReviewPager;
   summary?: ReviewSummaryPayload;
+  statusCounts?: ReviewStatusCounts;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -250,7 +262,7 @@ export class ReviewService {
   getReviewsPage(params?: {
     page?: number;
     pageSize?: number;
-    status?: 'all' | 'published' | 'unpublished';
+    status?: PublishFilter;
     search?: string;
     rating?: number;
     category?: string | null;
@@ -268,6 +280,7 @@ export class ReviewService {
         reviews: payload.data.map((review) => this.mapBackendReview(review)),
         pager: payload.pager,
         summary: payload.summary,
+        statusCounts: payload.status_counts,
       }))
     );
   }
@@ -282,8 +295,12 @@ export class ReviewService {
     return this.http.get<ReviewSummaryPayload>(`${BACKEND_URL}/admin/reviews/summary`);
   }
 
-  getSellerReviews(sellerId: string, page = 1, pageSize = 12): Observable<ReviewPageResult> {
-    return this.http.get<BackendSellerReviewPage>(`${BACKEND_URL}/seller/${sellerId}/reviews?page=${page}&page_size=${pageSize}`).pipe(
+  getSellerReviews(sellerId: string, page = 1, pageSize = 12, category: string | null = null): Observable<ReviewPageResult> {
+    const query = new URLSearchParams();
+    query.set('page', String(page));
+    query.set('page_size', String(pageSize));
+    if (category?.trim()) query.set('category', category.trim());
+    return this.http.get<BackendSellerReviewPage>(`${BACKEND_URL}/seller/${sellerId}/reviews?${query.toString()}`).pipe(
       map((payload) => ({
         reviews: payload.data.map((review) => this.mapSellerReview(review)),
         pager: payload.pager,

@@ -1,7 +1,7 @@
 import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ReviewService } from '../../services/review.service';
+import { ReviewService, ReviewStatusCounts } from '../../services/review.service';
 import { AnalyticsService, SellerAnalyticsSummary, SellerTrendPoint, SellerAspectInsight } from '../../services/analytics.service';
 import { Review, CreateSiteReviewDto, ProductCatalogItem, PublishFilter, SiteCategoryReview, PipelineStatus, REVIEW_CATEGORIES } from '../../models/review.model';
 import { ReviewCardComponent } from '../review-card/review-card';
@@ -53,6 +53,8 @@ interface ReviewSummaryState {
   total_reviews: number;
   published_count: number;
   unpublished_count: number;
+  moderation_count: number;
+  blocked_count: number;
   average_rating: number;
   rating_distribution: { star: number; count: number }[];
   category_stats: SiteCategoryReview[];
@@ -79,10 +81,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
     total_reviews: 0,
     published_count: 0,
     unpublished_count: 0,
+    moderation_count: 0,
+    blocked_count: 0,
     average_rating: 0,
     rating_distribution: [],
     category_stats: [],
   };
+  statusCounts: ReviewStatusCounts | null = null;
   loading = false;
   error = '';
   searchQuery = '';
@@ -102,6 +107,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   readonly productPageSize = 12;
   adminReviewPage = 1;
   sellerReviewPage = 1;
+  sellerSelectedCategory: string | null = null;
   readonly reviewPageSize = 12;
   processingReviewIds = new Set<string>();
   private processingPollTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -308,7 +314,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     return [
       { value: `${this.products.length}`, label: 'catalog products' },
-      { value: `${this.pendingPipelineReviews.length}`, label: 'needs review' },
+      { value: `${this.moderationCount}`, label: 'needs review' },
       { value: `${this.publishedCount}`, label: 'published live' },
     ];
   }
@@ -320,11 +326,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   get pipelineMetrics(): PipelineMetric[] {
     const totalPublished = this.reviewSummary.published_count;
     const approved = totalPublished;
-    const manualReview = this.queueReviews.filter((review) => review.pipelineStatus === 'manual-review').length;
-    const blocked = this.queueReviews.filter((review) => review.pipelineStatus === 'blocked').length;
+    const manualReview = this.reviewSummary.moderation_count;
+    const blocked = this.reviewSummary.blocked_count;
 
     return [
-      { label: 'Pipeline automation', value: this.pipelineAutomationEnabled ? 'On' : 'Off', note: `Threshold ${this.automationThreshold}`, tone: this.pipelineAutomationEnabled ? 'good' : 'warn' },
       { label: 'Auto-approved', value: `${approved}`, note: `${totalPublished} live on website`, tone: 'good' },
       { label: 'Manual queue', value: `${manualReview}`, note: 'Needs super admin review', tone: manualReview > 0 ? 'warn' : 'default' },
       { label: 'Blocked', value: `${blocked}`, note: 'Held back from website', tone: blocked > 0 ? 'danger' : 'default' },
@@ -483,9 +488,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (id !== this.selectedSellerId) {
       this.selectedSellerId = id;
       this.sellerReviewPage = 1;
+      this.sellerSelectedCategory = null;
       this.loadSellerAnalytics();
     }
     this.sellerDropdownOpen = false;
+  }
+
+  selectSellerCategory(category: string | null): void {
+    const next = category ? category : null;
+    if (this.sellerSelectedCategory === next) {
+      return;
+    }
+    this.sellerSelectedCategory = next;
+    this.sellerReviewPage = 1;
+    this.loadSellerPortalReviews();
   }
 
   @HostListener('document:click')
@@ -524,7 +540,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.sellerPortalReviews = [];
       return;
     }
-    this.reviewService.getSellerReviews(this.selectedSellerId, this.sellerReviewPage, this.reviewPageSize).subscribe({
+    this.reviewService.getSellerReviews(this.selectedSellerId, this.sellerReviewPage, this.reviewPageSize, this.sellerSelectedCategory).subscribe({
       next: (payload) => {
         this.sellerPortalReviews = payload.reviews;
         this.sellerReviewPager = payload.pager;
@@ -551,6 +567,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.reviews = payload.reviews;
         this.filteredReviews = payload.reviews;
         this.reviewPager = payload.pager;
+        if (payload.statusCounts) {
+          this.statusCounts = payload.statusCounts;
+        }
         const loadedIds = new Set(payload.reviews.map((review) => review.id));
         for (const reviewId of [...this.processingReviewIds]) {
           if (!loadedIds.has(reviewId)) {
@@ -574,7 +593,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
   loadReviewSummary(): void {
     this.reviewService.getReviewSummary().subscribe({
       next: (summary) => {
-        this.reviewSummary = summary;
+        this.reviewSummary = {
+          total_reviews: summary.total_reviews ?? 0,
+          published_count: summary.published_count ?? 0,
+          unpublished_count: summary.unpublished_count ?? 0,
+          moderation_count: summary.moderation_count ?? 0,
+          blocked_count: summary.blocked_count ?? 0,
+          average_rating: summary.average_rating ?? 0,
+          rating_distribution: summary.rating_distribution ?? [],
+          category_stats: summary.category_stats ?? [],
+        };
         this.categoryStats = (summary.category_stats || []).filter((stat) => !!stat.category);
       },
       error: () => {
@@ -582,6 +610,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
           total_reviews: 0,
           published_count: 0,
           unpublished_count: 0,
+          moderation_count: 0,
+          blocked_count: 0,
           average_rating: 0,
           rating_distribution: [],
           category_stats: [],
@@ -622,8 +652,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   isSelected(id: string): boolean { return this.selectedIds.has(id); }
 
-  get publishedCount(): number { return this.reviewSummary.published_count; }
+  private get useScopedCounts(): boolean {
+    return !!this.selectedCategoryKey && this.statusCounts !== null;
+  }
+  get totalReviewCount(): number {
+    return this.useScopedCounts ? this.statusCounts!.total : this.reviewSummary.total_reviews;
+  }
+  get publishedCount(): number {
+    return this.useScopedCounts ? this.statusCounts!.published : this.reviewSummary.published_count;
+  }
   get unpublishedCount(): number { return this.reviewSummary.unpublished_count; }
+  get moderationCount(): number {
+    return this.useScopedCounts ? this.statusCounts!.moderation : this.reviewSummary.moderation_count;
+  }
+  get blockedCount(): number {
+    return this.useScopedCounts ? this.statusCounts!.blocked : this.reviewSummary.blocked_count;
+  }
   get needsActionCount(): number {
     return this.reviewSummary.unpublished_count;
   }
@@ -645,6 +689,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.selectedCategory = '';
     this.selectedCategoryKey = null;
     this.selectedRating = 0;
+    this.publishFilter = 'all';
     this.adminReviewPage = 1;
     this.applyFilters();
   }

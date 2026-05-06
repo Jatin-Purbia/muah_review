@@ -84,9 +84,6 @@
             <span class="section-kicker">Admin</span>
             <h3>Super Admin Workspace</h3>
           </div>
-          <button class="toggle-automation" [class.off]="!pipelineAutomationEnabled" (click)="togglePipelineAutomation()">
-            {{ pipelineAutomationEnabled ? 'Automation enabled' : 'Automation disabled' }}
-          </button>
         </div>
 
         <div class="metric-grid">
@@ -147,37 +144,6 @@
           </button>
         </div>
 
-        <div class="pipeline-layout queue-only">
-          <article class="queue-card">
-            <div class="pipeline-header">
-              <div>
-                <span class="section-kicker">Queue</span>
-                <h4>Priority queue</h4>
-              </div>
-              <div class="queue-header-meta">
-                <!-- <div class="threshold-pill">Score threshold {{ automationThreshold }}</div> -->
-                <div class="threshold-pill subtle">{{ pendingPipelineReviews.length }} items</div>
-              </div>
-            </div>
-
-            <div class="queue-list queue-list-scrollable">
-              @for (review of pendingPipelineReviews; track review.id) {
-                <div class="queue-item" [class.warn]="review.pipelineStatus === 'manual-review'" [class.danger]="review.pipelineStatus === 'blocked'">
-                  <div class="queue-main">
-                    <strong>{{ review.productName }}</strong>
-                    <span>{{ review.sellerName }} &middot; {{ review.reviewCategory }}</span>
-                  </div>
-                  <div class="queue-score">
-                    <span class="status-tag" [class.warn]="review.pipelineStatus === 'manual-review'" [class.danger]="review.pipelineStatus === 'blocked'">
-                      {{ review.pipelineStatus }}
-                    </span>
-                    <!-- <strong>{{ review.pipelineScore }}</strong> -->
-                  </div>
-                </div>
-              }
-            </div>
-          </article>
-        </div>
       </section>
 
       <app-stats-bar
@@ -223,18 +189,6 @@
         </div>
 
         <div class="section-bar">
-          <div class="tabs">
-            <button class="tab tab-unpublished" [class.active]="publishFilter === 'unpublished'" (click)="setPublishFilter('unpublished')">
-              Needs action <span class="tab-count">{{ needsActionCount }}</span>
-            </button>
-            <button class="tab tab-published" [class.active]="publishFilter === 'published'" (click)="setPublishFilter('published')">
-              Live <span class="tab-count">{{ publishedCount }}</span>
-            </button>
-            <button class="tab" [class.active]="publishFilter === 'all'" (click)="setPublishFilter('all')">
-              All reviews <span class="tab-count">{{ reviewSummary.total_reviews }}</span>
-            </button>
-          </div>
-
           <div class="filters-inline">
             <input
               class="search-input"
@@ -243,13 +197,23 @@
               [(ngModel)]="searchQuery"
               (ngModelChange)="applyFilters()"
             />
+            <select
+              class="filter-select status-select"
+              [ngModel]="publishFilter"
+              (ngModelChange)="setPublishFilter($event)"
+            >
+              <option value="all">All reviews ({{ totalReviewCount }})</option>
+              <option value="published">Published ({{ publishedCount }})</option>
+              <option value="moderation">Moderation ({{ moderationCount }})</option>
+              <option value="blocked">Blocked ({{ blockedCount }})</option>
+            </select>
             <select class="filter-select" [(ngModel)]="selectedRating" (ngModelChange)="applyFilters()">
               <option [ngValue]="0">All ratings</option>
               @for (star of [5,4,3,2,1]; track star) {
                 <option [ngValue]="star">{{ star }} &#9733;</option>
               }
             </select>
-            @if (searchQuery || selectedCategoryKey || selectedRating > 0) {
+            @if (searchQuery || selectedCategoryKey || selectedRating > 0 || publishFilter !== 'all') {
               <button class="btn-clear" (click)="clearFilters()">Clear</button>
             }
             <span class="result-count">{{ reviewPager.totalItems }} reviews</span>
@@ -517,6 +481,23 @@
             </div>
           </div>
 
+          <div class="cat-scroll-wrap">
+            <div class="cat-tabs">
+              <button class="cat-tab" [class.active]="sellerSelectedCategory === null" (click)="selectSellerCategory(null)">
+                <span class="cat-name">All categories</span>
+              </button>
+              @for (category of reviewCategories; track category) {
+                <button
+                  class="cat-tab"
+                  [class.active]="sellerSelectedCategory === category"
+                  (click)="selectSellerCategory(category)"
+                >
+                  <span class="cat-name">{{ category }}</span>
+                </button>
+              }
+            </div>
+          </div>
+
           @if (sellerReviewPager.totalItems > 0) {
             <div class="reviews-grid">
               @for (review of pagedSellerReviews; track review.id) {
@@ -546,8 +527,12 @@
           } @else {
             <div class="empty-state compact">
               <div class="empty-icon">Seller</div>
-              <h3>No seller reviews yet</h3>
-              <p>This seller does not have any real reviews to display yet.</p>
+              <h3>No reviews found</h3>
+              @if (sellerSelectedCategory) {
+                <p>No reviews in the "{{ sellerSelectedCategory }}" category for this seller.</p>
+              } @else {
+                <p>This seller does not have any real reviews to display yet.</p>
+              }
             </div>
           }
         </section>

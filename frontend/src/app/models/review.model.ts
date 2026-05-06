@@ -184,4 +184,4 @@ export const RATING_CONFIG: RatingBreakdown[] = [
 
 // Misc
 
-export type PublishFilter = 'all' | 'published' | 'unpublished';
+export type PublishFilter = 'all' | 'published' | 'unpublished' | 'moderation' | 'blocked';

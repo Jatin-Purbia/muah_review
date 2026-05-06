@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 
 from app.api.deps import get_config_service, get_product_catalog_service, get_repo, get_review_workflow_service, get_seller_analytics_service
+from app.models.enums import ReviewCategory
 from app.repositories.base import ReviewRepository
 from app.schemas.admin import ManualModerationRequest, ModerationConfigPatchRequest
 from app.schemas.review import ReviewCreateRequest
@@ -12,6 +13,61 @@ from app.services.products import ProductCatalogService
 from app.services.review_workflow import ReviewWorkflowService
 
 router = APIRouter()
+_CATEGORY_LOOKUP = {category.value.lower(): category.value for category in ReviewCategory}
+
+
+def _resolve_category(value: str) -> str | None:
+    if not value or not value.strip():
+        return None
+    return _CATEGORY_LOOKUP.get(value.strip().lower())
+
+
+_BLOCKED_STATUS_VALUES = {"flagged", "failed", "rejected"}
+
+
+def _status_counts_from_documents(documents: list[dict]) -> dict:
+    total = len(documents)
+    published = sum(1 for d in documents if d.get("review", {}).get("is_published"))
+    moderation = sum(
+        1 for d in documents
+        if str(d.get("review", {}).get("status", "")) == "pending_manual_review"
+    )
+    blocked = sum(
+        1 for d in documents
+        if str(d.get("review", {}).get("status", "")) in _BLOCKED_STATUS_VALUES
+    )
+    return {
+        "total": total,
+        "published": published,
+        "moderation": moderation,
+        "blocked": blocked,
+    }
+
+
+def _status_counts_from_reviews(reviews: list) -> dict:
+    total = len(reviews)
+    published = sum(1 for r in reviews if r.is_published)
+    moderation = sum(1 for r in reviews if r.status.value == "pending_manual_review")
+    blocked = sum(1 for r in reviews if r.status.value in _BLOCKED_STATUS_VALUES)
+    return {
+        "total": total,
+        "published": published,
+        "moderation": moderation,
+        "blocked": blocked,
+    }
+
+
+def _status_counts_via_repo(repo: ReviewRepository, base_filter: dict) -> dict:
+    total = repo.count_review_documents(base_filter)
+    published = repo.count_review_documents({**base_filter, "review.is_published": True})
+    moderation = repo.count_review_documents({**base_filter, "review.status": "pending_manual_review"})
+    blocked = repo.count_review_documents({**base_filter, "review.status": {"$in": list(_BLOCKED_STATUS_VALUES)}})
+    return {
+        "total": total,
+        "published": published,
+        "moderation": moderation,
+        "blocked": blocked,
+    }
 _ADMIN_SUMMARY_CACHE: dict[str, object] = {"value": None, "expires_at": datetime.min.replace(tzinfo=timezone.utc)}
 
 
@@ -66,6 +122,8 @@ def _admin_review_summary(reviews: list) -> dict:
     total_reviews = len(reviews)
     published_count = sum(1 for review in reviews if review.is_published)
     unpublished_count = total_reviews - published_count
+    moderation_count = sum(1 for review in reviews if review.status.value == "pending_manual_review")
+    blocked_count = sum(1 for review in reviews if review.status.value in {"flagged", "failed", "rejected"})
     average_rating = round(sum(review.star_rating for review in reviews) / total_reviews, 1) if total_reviews else 0.0
     rating_distribution = [
         {"star": star, "count": sum(1 for review in reviews if review.star_rating == star)}
@@ -89,6 +147,8 @@ def _admin_review_summary(reviews: list) -> dict:
         "total_reviews": total_reviews,
         "published_count": published_count,
         "unpublished_count": unpublished_count,
+        "moderation_count": moderation_count,
+        "blocked_count": blocked_count,
         "average_rating": average_rating,
         "rating_distribution": rating_distribution,
         "category_stats": category_stats,
@@ -98,6 +158,14 @@ def _admin_review_summary(reviews: list) -> dict:
 def _admin_review_summary_from_documents(documents: list[dict]) -> dict:
     total_reviews = len(documents)
     published_count = sum(1 for document in documents if document.get("review", {}).get("is_published"))
+    moderation_count = sum(
+        1 for document in documents
+        if str(document.get("review", {}).get("status", "")) == "pending_manual_review"
+    )
+    blocked_count = sum(
+        1 for document in documents
+        if str(document.get("review", {}).get("status", "")) in {"flagged", "failed", "rejected"}
+    )
     average_rating = round(
         sum(int(document.get("review", {}).get("star_rating", 0)) for document in documents) / total_reviews,
         1,
@@ -128,6 +196,8 @@ def _admin_review_summary_from_documents(documents: list[dict]) -> dict:
         "total_reviews": total_reviews,
         "published_count": published_count,
         "unpublished_count": total_reviews - published_count,
+        "moderation_count": moderation_count,
+        "blocked_count": blocked_count,
         "average_rating": average_rating,
         "rating_distribution": rating_distribution,
         "category_stats": category_stats,
@@ -179,8 +249,15 @@ def get_seller_reviews(
     products: ProductCatalogService = Depends(get_product_catalog_service),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=12, ge=1, le=50),
+    category: str = Query(default=""),
 ) -> dict:
     reviews = analytics.list_reviews(seller_id, products.product_map())
+    if category.strip():
+        normalized_category = category.strip().lower()
+        reviews = [
+            review for review in reviews
+            if str(review.get("category", "")).lower() == normalized_category
+        ]
     total_items = len(reviews)
     start = (page - 1) * page_size
     data = reviews[start:start + page_size]
@@ -232,16 +309,21 @@ def get_admin_reviews(
     products: ProductCatalogService = Depends(get_product_catalog_service),
 ) -> dict:
     product_map = products.product_map()
+    canonical_category = _resolve_category(category)
     if hasattr(repo, "find_review_documents") and not search.strip():
         review_filter: dict[str, object] = {}
         if status == "published":
             review_filter["review.is_published"] = True
         elif status == "unpublished":
             review_filter["review.is_published"] = False
+        elif status == "moderation":
+            review_filter["review.status"] = "pending_manual_review"
+        elif status == "blocked":
+            review_filter["review.status"] = {"$in": ["flagged", "failed", "rejected"]}
         if rating > 0:
             review_filter["review.star_rating"] = rating
-        if category.strip():
-            review_filter["review.category"] = category.strip()
+        if canonical_category:
+            review_filter["review.category"] = canonical_category
 
         total_items = repo.count_review_documents(review_filter) if hasattr(repo, "count_review_documents") else 0
         start = (page - 1) * page_size
@@ -258,6 +340,14 @@ def get_admin_reviews(
             limit=page_size,
         )
         total_pages = max(1, (total_items + page_size - 1) // page_size)
+        category_filter: dict[str, object] = {}
+        if canonical_category:
+            category_filter["review.category"] = canonical_category
+        status_counts = (
+            _status_counts_via_repo(repo, category_filter)
+            if hasattr(repo, "count_review_documents")
+            else {"total": 0, "published": 0, "moderation": 0, "blocked": 0}
+        )
         return {
             "data": [_review_payload_from_document(document, product_map) for document in page_documents],
             "pager": {
@@ -266,6 +356,7 @@ def get_admin_reviews(
                 "numberPerPage": page_size,
                 "totalPages": total_pages,
             },
+            "status_counts": status_counts,
         }
 
     documents = _review_documents(repo)
@@ -273,11 +364,31 @@ def get_admin_reviews(
         documents = sorted(documents, key=lambda document: document.get("review", {}).get("created_at", ""), reverse=True)
         summary = _admin_review_summary_from_documents(documents)
 
+        category_scoped_documents = (
+            [
+                document for document in documents
+                if str(document.get("review", {}).get("category", "")).lower() == canonical_category.lower()
+            ]
+            if canonical_category
+            else documents
+        )
+        status_counts = _status_counts_from_documents(category_scoped_documents)
+
         filtered = documents
         if status == "published":
             filtered = [document for document in filtered if document.get("review", {}).get("is_published")]
         elif status == "unpublished":
             filtered = [document for document in filtered if not document.get("review", {}).get("is_published")]
+        elif status == "moderation":
+            filtered = [
+                document for document in filtered
+                if str(document.get("review", {}).get("status", "")) == "pending_manual_review"
+            ]
+        elif status == "blocked":
+            filtered = [
+                document for document in filtered
+                if str(document.get("review", {}).get("status", "")) in {"flagged", "failed", "rejected"}
+            ]
 
         if search.strip():
             query = search.strip().lower()
@@ -313,16 +424,28 @@ def get_admin_reviews(
                 "totalPages": total_pages,
             },
             "summary": summary,
+            "status_counts": status_counts,
         }
 
     reviews = sorted(repo.list_reviews(), key=lambda review: review.created_at, reverse=True)
     summary = _admin_review_summary(reviews)
+
+    category_scoped_reviews = (
+        [review for review in reviews if review.category.value.lower() == canonical_category.lower()]
+        if canonical_category
+        else reviews
+    )
+    status_counts = _status_counts_from_reviews(category_scoped_reviews)
 
     filtered = reviews
     if status == "published":
         filtered = [review for review in filtered if review.is_published]
     elif status == "unpublished":
         filtered = [review for review in filtered if not review.is_published]
+    elif status == "moderation":
+        filtered = [review for review in filtered if review.status.value == "pending_manual_review"]
+    elif status == "blocked":
+        filtered = [review for review in filtered if review.status.value in {"flagged", "failed", "rejected"}]
 
     if search.strip():
         query = search.strip().lower()
@@ -355,6 +478,7 @@ def get_admin_reviews(
             "totalPages": total_pages,
         },
         "summary": summary,
+        "status_counts": status_counts,
     }
 
 
