@@ -1,54 +1,135 @@
 <div class="stats-bar">
-  <div class="stat-card">
-    <span class="stat-label">Total Reviews</span>
-    <span class="stat-value">{{ totalReviews }}</span>
-    <div class="publish-split">
-      <span class="split-item published">Published {{ publishedCount }}</span>
-      <span class="split-item unpublished">Moderation Queue {{ unpublishedCount }}</span>
+  <section class="stat-card total-card">
+    <div class="card-head">
+      <div>
+        <span class="stat-label">Total Reviews</span>
+        <p class="stat-caption">Live moderation snapshot across the full review set.</p>
+      </div>
+      <span class="stat-badge neutral">{{ totalReviews }} total</span>
     </div>
-  </div>
 
-  <div class="stat-card">
-    <span class="stat-label">Average Rating</span>
-    <div class="rating-display">
-      <span class="stat-value">{{ averageRating | number:'1.1-1' }}</span>
-      <div class="stars">
-        @for (s of stars(averageRating); track $index) {
-          <span [class.filled]="s === '★'">{{ s }}</span>
-        }
+    <div class="stat-primary-row">
+      <span class="stat-value">{{ totalReviews }}</span>
+      <!-- <div class="pulse-orb" aria-hidden="true"></div> -->
+    </div>
+
+    <div class="publish-split">
+      <div class="split-card published">
+        <span class="split-kicker">Published</span>
+        <strong>{{ publishedCount }}</strong>
+      </div>
+      <div class="split-card unpublished">
+        <span class="split-kicker">In moderation</span>
+        <strong>{{ unpublishedCount }}</strong>
       </div>
     </div>
-  </div>
+  </section>
 
-  <div class="stat-card distribution">
-    <span class="stat-label">Rating Distribution</span>
-    <div class="bars">
-      @for (item of ratingDistribution; track item.star) {
-        <div class="bar-row">
-          <span class="bar-label">{{ item.star }}&#9733;</span>
-          <div class="bar-track">
-            <div class="bar-fill" [style.width]="getBarWidth(item.count)"></div>
-          </div>
-          <span class="bar-count">{{ item.count }}</span>
-        </div>
-      }
+  <section class="stat-card rating-card">
+    <div class="card-head">
+      <div>
+        <span class="stat-label">Average Rating</span>
+        <p class="stat-caption">Overall buyer sentiment, rounded to the nearest star.</p>
+      </div>
+      <span class="stat-badge accent">
+        @if (totalReviews > 0) {
+          {{ totalReviews }} responses
+        } @else {
+          Waiting for reviews
+        }
+      </span>
     </div>
-  </div>
 
-  <div class="stat-card">
-    <span class="stat-label">Categories</span>
-    <div class="category-chips">
-      @if (categoryDisplay.length === 0) {
-        <span class="no-data">No categories yet</span>
-      }
-      @for (cat of categoryDisplay; track cat.name) {
-        <div class="cat-chip">
-          <span class="chip-name">{{ cat.name }}</span>
-          @if (cat.rating > 0) {
-            <span class="chip-rating">{{ cat.rating | number:'1.1-1' }}&#9733;</span>
+    <div class="rating-display">
+      <span class="stat-value">{{ averageRating | number:'1.1-1' }}</span>
+      <div class="rating-meta">
+        <div class="stars" aria-label="Average rating">
+          @for (s of stars(averageRating); track $index) {
+            <span [class.filled]="s === '★'">{{ s }}</span>
           }
         </div>
-      }
+        <span class="rating-note">
+          @if (averageRating > 0) {
+            Stronger than {{ averageRating < 4 ? 'average' : 'most' }} product feedback.
+          } @else {
+            Ratings will appear after the first approved review.
+          }
+        </span>
+      </div>
     </div>
-  </div>
+  </section>
+
+  <section class="stat-card distribution-card">
+    <div class="card-head">
+      <div>
+        <span class="stat-label">Rating Distribution</span>
+        <p class="stat-caption">How review volume is spread across each score band.</p>
+      </div>
+      <span class="stat-badge soft">{{ moderationShare }}% in queue</span>
+    </div>
+
+    @if (totalReviews === 0) {
+      <div class="empty-panel">
+        <strong>No rating pattern yet</strong>
+        <span>Once reviews land, this chart will show which scores dominate.</span>
+      </div>
+    } @else {
+      <div class="bars">
+        @for (item of ratingDistribution; track item.star) {
+          <div class="bar-row">
+            <div class="bar-copy">
+              <span class="bar-label">{{ item.star }}&#9733;</span>
+              <span class="bar-meta">{{ item.count }} reviews</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill" [style.width]="getBarWidth(item.count)"></div>
+            </div>
+            <span class="bar-percent">{{ getBarPercent(item.count) }}%</span>
+          </div>
+        }
+      </div>
+    }
+  </section>
+
+  <section class="stat-card category-card">
+    <div class="card-head">
+      <div>
+        <span class="stat-label">Categories</span>
+        <p class="stat-caption">Themes customers mention most often in their feedback.</p>
+      </div>
+      <span class="stat-badge neutral">
+        @if (categoryLead) {
+          Top: {{ categoryLead.name }}
+        } @else {
+          No categories yet
+        }
+      </span>
+    </div>
+
+    @if (categoryDisplay.length === 0) {
+      <div class="empty-panel compact">
+        <strong>No categories yet</strong>
+        <span>Add reviews and category trends will start surfacing here.</span>
+      </div>
+    } @else {
+      <div class="category-list">
+        @for (cat of categoryDisplay; track cat.name) {
+          <div class="category-row">
+            <div class="category-copy">
+              <span class="chip-name">{{ cat.name }}</span>
+              <span class="chip-subcopy">{{ cat.count || 0 }} mentions</span>
+            </div>
+
+            <div class="category-score">
+              @if (cat.rating > 0) {
+                <span class="chip-rating">{{ cat.rating | number:'1.1-1' }}&#9733;</span>
+              } @else {
+                <span class="chip-rating muted">Tracking</span>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </section>
 </div>

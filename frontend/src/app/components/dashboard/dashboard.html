@@ -155,7 +155,7 @@
                 <h4>Priority queue</h4>
               </div>
               <div class="queue-header-meta">
-                <div class="threshold-pill">Score threshold {{ automationThreshold }}</div>
+                <!-- <div class="threshold-pill">Score threshold {{ automationThreshold }}</div> -->
                 <div class="threshold-pill subtle">{{ pendingPipelineReviews.length }} items</div>
               </div>
             </div>
@@ -171,7 +171,7 @@
                     <span class="status-tag" [class.warn]="review.pipelineStatus === 'manual-review'" [class.danger]="review.pipelineStatus === 'blocked'">
                       {{ review.pipelineStatus }}
                     </span>
-                    <strong>{{ review.pipelineScore }}</strong>
+                    <!-- <strong>{{ review.pipelineScore }}</strong> -->
                   </div>
                 </div>
               }
@@ -244,7 +244,7 @@
               (ngModelChange)="applyFilters()"
             />
             <select class="filter-select" [(ngModel)]="selectedRating" (ngModelChange)="applyFilters()">
-              <option [ngValue]="0">Any rating</option>
+              <option [ngValue]="0">All ratings</option>
               @for (star of [5,4,3,2,1]; track star) {
                 <option [ngValue]="star">{{ star }} &#9733;</option>
               }
