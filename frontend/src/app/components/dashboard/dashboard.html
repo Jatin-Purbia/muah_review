@@ -367,23 +367,87 @@
             <div class="pipeline-header">
               <div>
                 <span class="section-kicker">Sentiment</span>
-                <h4>Customer sentiment</h4>
+                <h4>Customer sentiment mix</h4>
               </div>
             </div>
 
-            <div class="bar-stack">
-              @for (item of sellerMoodBars; track item.label) {
-                <div class="bar-item">
-                  <div class="bar-copy">
-                    <span>{{ item.label }}</span>
-                    <strong>{{ item.value }}%</strong>
+            <div class="sentiment-overview">
+              <div class="sentiment-ring-card">
+                <div class="sentiment-ring" [style.background]="sellerSentimentRing">
+                  <div class="sentiment-ring-core">
+                    <strong>{{ selectedSeller?.averageRating ?? 0 | number:'1.1-1' }}</strong>
+                    <span>avg rating</span>
                   </div>
-                  <div class="bar-track large">
-                    <div class="bar-fill" [class.good]="item.tone === 'good'" [class.warn]="item.tone === 'warn'" [class.danger]="item.tone === 'danger'" [style.width.%]="item.value"></div>
+                </div>
+              </div>
+
+              <div class="sentiment-legend">
+                @for (slice of sellerSentimentSlices; track slice.label) {
+                  <div class="sentiment-legend-row" [class.good]="slice.tone === 'good'" [class.warn]="slice.tone === 'warn'" [class.danger]="slice.tone === 'danger'">
+                    <div class="legend-copy">
+                      <span class="legend-dot" [style.background]="slice.color"></span>
+                      <span>{{ slice.label }}</span>
+                    </div>
+                    <div class="legend-values">
+                      <strong>{{ slice.percent }}%</strong>
+                      <span>{{ slice.count }} reviews</span>
+                    </div>
                   </div>
+                }
+              </div>
+            </div>
+          </article>
+
+          <article class="analysis-card">
+            <div class="pipeline-header">
+              <div>
+                <span class="section-kicker">Recommendations</span>
+                <h4>What the seller should improve next</h4>
+              </div>
+            </div>
+
+            <div class="signal-list">
+              @for (recommendation of sellerRecommendations; track recommendation.title) {
+                <div class="signal-card recommendation-card" [class.good]="recommendation.tone === 'good'" [class.warn]="recommendation.tone === 'warn'" [class.danger]="recommendation.tone === 'danger'">
+                  <strong>{{ recommendation.title }}</strong>
+                  <p>{{ recommendation.body }}</p>
                 </div>
               }
             </div>
+          </article>
+        </div>
+
+        <div class="seller-layout">
+          <article class="analysis-card">
+            <div class="pipeline-header">
+              <div>
+                <span class="section-kicker">Category detail</span>
+                <h4>Category performance</h4>
+              </div>
+            </div>
+
+            @if (sellerCategoryPerformance.length > 0) {
+              <div class="seller-opportunity-stack">
+                @for (item of sellerOpportunityAreas; track item.category) {
+                  <div class="opportunity-row">
+                    <div class="bar-copy">
+                      <span>{{ item.category }}</span>
+                      <strong>{{ item.rating | number:'1.1-1' }}&#9733;</strong>
+                    </div>
+                    <div class="bar-track large">
+                      <div class="bar-fill" [class.good]="item.rating >= 4" [class.warn]="item.rating >= 3 && item.rating < 4" [class.danger]="item.rating < 3" [style.width.%]="item.impact"></div>
+                    </div>
+                    <span class="opportunity-note">{{ item.mentions }} mentions</span>
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="empty-state compact">
+                <div class="empty-icon">Aspects</div>
+                <h3>No category insights yet</h3>
+                <p>Category-level sentiment will show up once aspect analytics are available for this seller.</p>
+              </div>
+            }
           </article>
 
           <article class="analysis-card">
@@ -392,19 +456,57 @@
                 <span class="section-kicker">Trend</span>
                 <h4>Monthly satisfaction trend</h4>
               </div>
+              @if (sellerTrendLatestScore !== null) {
+                <div class="threshold-pill subtle">Latest {{ sellerTrendLatestScore }} / 100</div>
+              }
             </div>
 
             @if (sellerTrend.length > 0) {
-              <div class="trend-chart">
-                @for (item of sellerTrend; track item.month) {
-                  <div class="trend-col">
-                    <div class="trend-bar-wrap">
-                      <div class="trend-bar" [style.height.%]="item.score"></div>
-                    </div>
-                    <strong>{{ item.score }}</strong>
-                    <span>{{ item.month }}</span>
+              <div class="trend-chart-card">
+                <div class="trend-chart-header">
+                  <div class="trend-chart-copy">
+                    <strong>Seller momentum</strong>
+                    <span>Smoothed score trend based on average monthly rating.</span>
                   </div>
-                }
+                </div>
+
+                <div class="trend-chart">
+                  <div class="trend-axis-labels">
+                    @for (line of sellerTrendGridLines; track line.value) {
+                      <span [style.top.px]="line.y - 10">{{ line.value }}</span>
+                    }
+                  </div>
+
+                  <svg class="trend-svg" viewBox="0 0 520 220" preserveAspectRatio="none" aria-label="Monthly satisfaction trend chart">
+                    <defs>
+                      <linearGradient id="trendAreaFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="rgba(203, 122, 85, 0.38)"></stop>
+                        <stop offset="100%" stop-color="rgba(203, 122, 85, 0.02)"></stop>
+                      </linearGradient>
+                    </defs>
+
+                    @for (line of sellerTrendGridLines; track line.value) {
+                      <line class="trend-grid-line" x1="18" [attr.y1]="line.y" x2="502" [attr.y2]="line.y"></line>
+                    }
+
+                    <path class="trend-area" [attr.d]="sellerTrendAreaPath"></path>
+                    <path class="trend-line" [attr.d]="sellerTrendLinePath"></path>
+
+                    @for (point of sellerTrendChartPoints; track point.month) {
+                      <circle class="trend-point" [attr.cx]="point.x" [attr.cy]="point.y" r="4.5"></circle>
+                      <text class="trend-point-score" [attr.x]="point.x" [attr.y]="point.y - 12">{{ point.score }}</text>
+                    }
+                  </svg>
+
+                  <div class="trend-x-axis">
+                    @for (point of sellerTrendChartPoints; track point.month) {
+                      <div class="trend-x-label">
+                        <strong>{{ point.shortMonth }}</strong>
+                        <span>{{ point.reviews }} reviews</span>
+                      </div>
+                    }
+                  </div>
+                </div>
               </div>
             } @else {
               <div class="empty-state compact">
@@ -420,28 +522,35 @@
           <article class="analysis-card">
             <div class="pipeline-header">
               <div>
-                <span class="section-kicker">Category detail</span>
-                <h4>Category performance</h4>
+                <span class="section-kicker">Aspect signals</span>
+                <h4>What customers keep talking about</h4>
               </div>
             </div>
 
-            @if (sellerCategoryPerformance.length > 0) {
-              <div class="category-table">
-                @for (item of sellerCategoryPerformance; track item.category) {
-                  <div class="category-row">
-                    <div>
-                      <strong>{{ item.category }}</strong>
-                      <span>{{ item.mentions }} mentions</span>
+            @if (sellerAspectSignals.length > 0) {
+              <div class="aspect-list">
+                @for (aspect of sellerAspectSignals; track aspect.aspect) {
+                  <div class="aspect-card" [class.good]="aspectSignalTone(aspect) === 'good'" [class.warn]="aspectSignalTone(aspect) === 'warn'" [class.danger]="aspectSignalTone(aspect) === 'danger'">
+                    <div class="bar-copy">
+                      <span class="aspect-name">{{ aspect.aspect }}</span>
+                      <strong>{{ aspect.total }} reviews mentioned this</strong>
                     </div>
-                    <div class="category-score">{{ item.rating | number:'1.1-1' }}&#9733;</div>
+
+                    <p class="aspect-summary">{{ describeAspectSignal(aspect) }}</p>
+
+                    <div class="aspect-stats">
+                      <span class="aspect-chip good">{{ aspect.positive }} positive</span>
+                      <span class="aspect-chip warn">{{ aspect.neutral }} neutral</span>
+                      <span class="aspect-chip danger">{{ aspect.negative }} negative</span>
+                    </div>
                   </div>
                 }
               </div>
             } @else {
               <div class="empty-state compact">
-                <div class="empty-icon">Aspects</div>
-                <h3>No category insights yet</h3>
-                <p>Category-level sentiment will show up once aspect analytics are available for this seller.</p>
+                <div class="empty-icon">Signals</div>
+                <h3>No aspect insights yet</h3>
+                <p>Once more analyzed reviews are available, this area will surface the strongest recurring themes.</p>
               </div>
             }
           </article>
@@ -474,11 +583,13 @@
         </div>
 
         <section class="section nested">
-          <div class="section-heading">
-            <div>
+          <div class="section-bar">
+            <div class="simple-heading">
               <span class="section-kicker">Seller reviews</span>
               <h3>Owned reviews</h3>
+              <p>Reviews currently associated with this seller.</p>
             </div>
+            <span class="result-count">{{ sellerReviewPager.totalItems }} reviews</span>
           </div>
 
           <div class="cat-scroll-wrap">

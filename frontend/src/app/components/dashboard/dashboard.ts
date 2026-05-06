@@ -42,6 +42,29 @@ interface DashboardStat {
   tone?: 'default' | 'gold' | 'green';
 }
 
+interface SellerSentimentSlice {
+  label: string;
+  count: number;
+  percent: number;
+  tone: 'good' | 'warn' | 'danger';
+  color: string;
+}
+
+interface SellerRecommendation {
+  title: string;
+  body: string;
+  tone: 'good' | 'warn' | 'danger';
+}
+
+interface SellerTrendChartPoint {
+  month: string;
+  shortMonth: string;
+  score: number;
+  reviews: number;
+  x: number;
+  y: number;
+}
+
 interface ReviewPager {
   totalItems: number;
   currentPage: number;
@@ -108,6 +131,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   adminReviewPage = 1;
   sellerReviewPage = 1;
   sellerSelectedCategory: string | null = null;
+  sellerSummaryLoading = false;
+  sellerTrendsLoading = false;
+  sellerAspectsLoading = false;
+  sellerReviewsLoading = false;
   readonly reviewPageSize = 12;
   processingReviewIds = new Set<string>();
   private processingPollTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -122,6 +149,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   automationThreshold = 72;
   selectedSellerId = '';
   sellerDropdownOpen = false;
+  private sellerAnalyticsRequestKey = 0;
+  private sellerReviewsRequestKey = 0;
 
   get someSelected(): boolean { return this.selectedIds.size > 0; }
   get selectedCount(): number { return this.selectedIds.size; }
@@ -237,15 +266,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
   get selectedSeller(): SellerSummary | undefined {
     const seller = this.sellers.find((seller) => seller.id === this.selectedSellerId);
     if (seller && this.sellerAnalytics) {
+      const totalReviews = this.sellerAnalytics.total_reviews || 0;
       return {
         ...seller,
-        totalReviews: this.sellerAnalytics.total_reviews,
+        totalReviews,
         publishedReviews: this.sellerAnalytics.published_reviews,
         averageRating: this.sellerAnalytics.avg_rating,
         satisfaction: Math.round(this.sellerAnalytics.avg_rating * 20),
-        positiveShare: Math.round(
-          (this.sellerAnalytics.sentiment_split.positive / this.sellerAnalytics.total_reviews) * 100
-        ),
+        positiveShare: totalReviews
+          ? Math.round((this.sellerAnalytics.sentiment_split.positive / totalReviews) * 100)
+          : 0,
       };
     }
     return seller;
@@ -401,11 +431,243 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .filter((item) => item.mentions > 0); // Only show categories with reviews
   }
 
+  get sellerSentimentSlices(): SellerSentimentSlice[] {
+    const total = this.sellerAnalytics?.total_reviews ?? this.sellerReviews.length;
+    const safeTotal = total || 1;
+    const positive = this.sellerAnalytics?.sentiment_split.positive
+      ?? this.sellerReviews.filter((review) => (review.starRating ?? 0) >= 4).length;
+    const mixed = this.sellerAnalytics?.sentiment_split.mixed
+      ?? this.sellerReviews.filter((review) => (review.starRating ?? 0) === 3).length;
+    const negative = this.sellerAnalytics?.sentiment_split.negative
+      ?? this.sellerReviews.filter((review) => (review.starRating ?? 0) <= 2).length;
+
+    return [
+      { label: 'Positive', count: positive, percent: Math.round((positive / safeTotal) * 100), tone: 'good', color: '#2f7d58' },
+      { label: 'Mixed', count: mixed, percent: Math.round((mixed / safeTotal) * 100), tone: 'warn', color: '#b26a1f' },
+      { label: 'Negative', count: negative, percent: Math.round((negative / safeTotal) * 100), tone: 'danger', color: '#b2463f' },
+    ];
+  }
+
+  get sellerSentimentRing(): string {
+    const slices = this.sellerSentimentSlices;
+    let current = 0;
+    const segments = slices.map((slice) => {
+      const start = current;
+      current += slice.percent;
+      return `${slice.color} ${start}% ${current}%`;
+    });
+    return `conic-gradient(${segments.join(', ')})`;
+  }
+
+  get sellerTopCategory(): { category: string; rating: number; mentions: number } | null {
+    return [...this.sellerCategoryPerformance]
+      .sort((a, b) => {
+        if (b.mentions !== a.mentions) return b.mentions - a.mentions;
+        return b.rating - a.rating;
+      })[0] ?? null;
+  }
+
+  get sellerOpportunityAreas(): Array<{ category: string; rating: number; mentions: number; impact: number }> {
+    const maxMentions = Math.max(...this.sellerCategoryPerformance.map((item) => item.mentions), 1);
+    return [...this.sellerCategoryPerformance]
+      .map((item) => ({
+        ...item,
+        impact: Math.max(12, Math.round((item.mentions / maxMentions) * 100)),
+      }))
+      .sort((a, b) => {
+        if (a.rating !== b.rating) return a.rating - b.rating;
+        return b.mentions - a.mentions;
+      })
+      .slice(0, 4);
+  }
+
+  get sellerAspectSignals(): Array<{ aspect: string; positive: number; negative: number; neutral: number; total: number; health: number }> {
+    return this.sellerAspects
+      .map((aspect) => {
+        const total = aspect.positive_mentions + aspect.negative_mentions + aspect.neutral_mentions;
+        const health = total
+          ? Math.round(((aspect.positive_mentions - aspect.negative_mentions) / total) * 100)
+          : 0;
+        return {
+          aspect: aspect.aspect.replace(/_/g, ' '),
+          positive: aspect.positive_mentions,
+          negative: aspect.negative_mentions,
+          neutral: aspect.neutral_mentions,
+          total,
+          health,
+        };
+      })
+      .filter((aspect) => aspect.total > 0)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+  }
+
+  describeAspectSignal(aspect: { positive: number; negative: number; neutral: number; total: number; health: number }): string {
+    if (aspect.total === 0) {
+      return 'Not enough review detail yet.';
+    }
+
+    if (aspect.negative > aspect.positive && aspect.negative >= aspect.neutral) {
+      return 'Customers mention this mostly as a problem area.';
+    }
+
+    if (aspect.positive > aspect.negative && aspect.positive >= aspect.neutral) {
+      return 'Customers usually talk about this positively.';
+    }
+
+    return 'Customers mention this often, but feedback is mostly neutral or mixed.';
+  }
+
+  aspectSignalTone(aspect: { positive: number; negative: number; neutral: number; health: number }): 'good' | 'warn' | 'danger' {
+    if (aspect.negative > aspect.positive && aspect.health < 0) {
+      return 'danger';
+    }
+
+    if (aspect.positive > aspect.negative && aspect.health > 0) {
+      return 'good';
+    }
+
+    return 'warn';
+  }
+
+  get sellerRecommendations(): SellerRecommendation[] {
+    const recommendations: SellerRecommendation[] = [];
+    const weakestCategory = this.sellerOpportunityAreas[0];
+    const strongestCategory = [...this.sellerCategoryPerformance]
+      .sort((a, b) => b.rating - a.rating || b.mentions - a.mentions)[0];
+    const weakestAspect = [...this.sellerAspectSignals]
+      .sort((a, b) => a.health - b.health || b.total - a.total)[0];
+    const pending = this.sellerPendingCount;
+    const negativeShare = this.sellerSentimentSlices.find((slice) => slice.label === 'Negative')?.percent ?? 0;
+
+    if (weakestCategory) {
+      recommendations.push({
+        title: `Prioritize ${weakestCategory.category.toLowerCase()} improvements`,
+        body: `${weakestCategory.category} is carrying ${weakestCategory.mentions} mentions with an average rating of ${weakestCategory.rating.toFixed(1)}. This is the clearest place to improve the next customer experience cycle.`,
+        tone: weakestCategory.rating < 3.5 ? 'danger' : 'warn',
+      });
+    }
+
+    if (weakestAspect) {
+      recommendations.push({
+        title: `Review recurring feedback around ${weakestAspect.aspect}`,
+        body: `${weakestAspect.negative} negative mentions are concentrated here. Sellers should inspect recent reviews in this theme and fix the most repeated issue first.`,
+        tone: weakestAspect.health < 0 ? 'danger' : 'warn',
+      });
+    }
+
+    if (pending > 0) {
+      recommendations.push({
+        title: 'Clear moderation lag quickly',
+        body: `${pending} review(s) are still waiting on admin review. Resolving these faster will improve the accuracy of your live sentiment picture.`,
+        tone: pending > 3 ? 'warn' : 'good',
+      });
+    }
+
+    if (strongestCategory) {
+      recommendations.push({
+        title: `Double down on what works in ${strongestCategory.category.toLowerCase()}`,
+        body: `This category is your strongest signal right now at ${strongestCategory.rating.toFixed(1)} stars. Reuse the same operational strengths in weaker categories.`,
+        tone: 'good',
+      });
+    }
+
+    if (recommendations.length === 0) {
+      recommendations.push({
+        title: 'Start building your review signal',
+        body: 'Once more reviews are collected, this space will highlight where sentiment is improving and where the seller experience needs attention.',
+        tone: negativeShare > 30 ? 'warn' : 'good',
+      });
+    }
+
+    return recommendations.slice(0, 4);
+  }
+
   get sellerTrend(): { month: string; score: number }[] {
     return this.sellerTrends.map((trend) => ({
       month: trend.date_label,
       score: Math.round(trend.avg_rating * 20),
     }));
+  }
+
+  get sellerTrendChartPoints(): SellerTrendChartPoint[] {
+    const width = 520;
+    const height = 220;
+    const leftPad = 18;
+    const rightPad = 18;
+    const topPad = 18;
+    const bottomPad = 26;
+    const usableWidth = width - leftPad - rightPad;
+    const usableHeight = height - topPad - bottomPad;
+    const points = this.sellerTrends.map((trend, index, source) => {
+      const score = Math.max(0, Math.min(100, Math.round(trend.avg_rating * 20)));
+      const x = source.length === 1
+        ? leftPad + usableWidth / 2
+        : leftPad + (usableWidth * index) / (source.length - 1);
+      const y = topPad + usableHeight - (usableHeight * score) / 100;
+      return {
+        month: trend.date_label,
+        shortMonth: this.formatTrendLabel(trend.date_label),
+        score,
+        reviews: trend.reviews,
+        x,
+        y,
+      };
+    });
+    return points;
+  }
+
+  get sellerTrendLinePath(): string {
+    const points = this.sellerTrendChartPoints;
+    if (points.length === 0) return '';
+    if (points.length === 1) {
+      const point = points[0];
+      return `M ${point.x} ${point.y}`;
+    }
+
+    return points
+      .map((point, index, source) => {
+        if (index === 0) {
+          return `M ${point.x} ${point.y}`;
+        }
+
+        const previous = source[index - 1];
+        const midpointX = (previous.x + point.x) / 2;
+        return `C ${midpointX} ${previous.y}, ${midpointX} ${point.y}, ${point.x} ${point.y}`;
+      })
+      .join(' ');
+  }
+
+  get sellerTrendAreaPath(): string {
+    const points = this.sellerTrendChartPoints;
+    if (points.length === 0) return '';
+    const baseline = 194;
+    const linePath = this.sellerTrendLinePath;
+    const first = points[0];
+    const last = points[points.length - 1];
+    return `${linePath} L ${last.x} ${baseline} L ${first.x} ${baseline} Z`;
+  }
+
+  get sellerTrendGridLines(): Array<{ y: number; value: number }> {
+    const topPad = 18;
+    const usableHeight = 176;
+    return [0, 25, 50, 75, 100].map((value) => ({
+      value,
+      y: topPad + usableHeight - (usableHeight * value) / 100,
+    }));
+  }
+
+  get sellerTrendLatestScore(): number | null {
+    const latest = this.sellerTrendChartPoints[this.sellerTrendChartPoints.length - 1];
+    return latest?.score ?? null;
+  }
+
+  private formatTrendLabel(value: string): string {
+    const [year, month] = value.split('-');
+    const monthIndex = Number(month) - 1;
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const label = monthNames[monthIndex] ?? value;
+    return year ? `${label} ${String(year).slice(-2)}` : label;
   }
 
   get sellerStatusCards(): { title: string; body: string; tone: 'good' | 'warn' | 'danger' }[] {
@@ -515,39 +777,76 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!this.selectedSellerId) {
       return;
     }
+    const sellerId = this.selectedSellerId;
+    const analyticsRequestKey = ++this.sellerAnalyticsRequestKey;
     this.sellerAnalytics = null;
     this.sellerTrends = [];
     this.sellerAspects = [];
     this.sellerPortalReviews = [];
     this.sellerReviewPager = { totalItems: 0, currentPage: this.sellerReviewPage, numberPerPage: this.reviewPageSize, totalPages: 1 };
-    this.analyticsService.getSummary(this.selectedSellerId).subscribe({
-      next: (summary) => { this.sellerAnalytics = summary; },
-      error: () => { this.sellerAnalytics = null; },
-    });
-    this.analyticsService.getTrends(this.selectedSellerId).subscribe({
-      next: (trends) => { this.sellerTrends = trends; },
-      error: () => { this.sellerTrends = []; },
-    });
-    this.analyticsService.getAspects(this.selectedSellerId).subscribe({
-      next: (aspects) => { this.sellerAspects = aspects; },
-      error: () => { this.sellerAspects = []; },
-    });
-    this.loadSellerPortalReviews();
-  }
-
-  loadSellerPortalReviews(): void {
-    if (!this.selectedSellerId) {
-      this.sellerPortalReviews = [];
-      return;
-    }
-    this.reviewService.getSellerReviews(this.selectedSellerId, this.sellerReviewPage, this.reviewPageSize, this.sellerSelectedCategory).subscribe({
-      next: (payload) => {
-        this.sellerPortalReviews = payload.reviews;
-        this.sellerReviewPager = payload.pager;
+    this.sellerSummaryLoading = true;
+    this.sellerTrendsLoading = true;
+    this.sellerAspectsLoading = true;
+    this.analyticsService.getSummary(sellerId).subscribe({
+      next: (summary) => {
+        if (analyticsRequestKey !== this.sellerAnalyticsRequestKey || sellerId !== this.selectedSellerId) return;
+        this.sellerAnalytics = summary;
+        this.sellerSummaryLoading = false;
       },
       error: () => {
+        if (analyticsRequestKey !== this.sellerAnalyticsRequestKey || sellerId !== this.selectedSellerId) return;
+        this.sellerAnalytics = null;
+        this.sellerSummaryLoading = false;
+      },
+    });
+    this.analyticsService.getTrends(sellerId).subscribe({
+      next: (trends) => {
+        if (analyticsRequestKey !== this.sellerAnalyticsRequestKey || sellerId !== this.selectedSellerId) return;
+        this.sellerTrends = trends;
+        this.sellerTrendsLoading = false;
+      },
+      error: () => {
+        if (analyticsRequestKey !== this.sellerAnalyticsRequestKey || sellerId !== this.selectedSellerId) return;
+        this.sellerTrends = [];
+        this.sellerTrendsLoading = false;
+      },
+    });
+    this.analyticsService.getAspects(sellerId).subscribe({
+      next: (aspects) => {
+        if (analyticsRequestKey !== this.sellerAnalyticsRequestKey || sellerId !== this.selectedSellerId) return;
+        this.sellerAspects = aspects;
+        this.sellerAspectsLoading = false;
+      },
+      error: () => {
+        if (analyticsRequestKey !== this.sellerAnalyticsRequestKey || sellerId !== this.selectedSellerId) return;
+        this.sellerAspects = [];
+        this.sellerAspectsLoading = false;
+      },
+    });
+    this.loadSellerPortalReviews(sellerId);
+  }
+
+  loadSellerPortalReviews(targetSellerId?: string): void {
+    const sellerId = targetSellerId ?? this.selectedSellerId;
+    if (!sellerId) {
+      this.sellerPortalReviews = [];
+      this.sellerReviewsLoading = false;
+      return;
+    }
+    const reviewsRequestKey = ++this.sellerReviewsRequestKey;
+    this.sellerReviewsLoading = true;
+    this.reviewService.getSellerReviews(sellerId, this.sellerReviewPage, this.reviewPageSize, this.sellerSelectedCategory).subscribe({
+      next: (payload) => {
+        if (reviewsRequestKey !== this.sellerReviewsRequestKey || sellerId !== this.selectedSellerId) return;
+        this.sellerPortalReviews = payload.reviews;
+        this.sellerReviewPager = payload.pager;
+        this.sellerReviewsLoading = false;
+      },
+      error: () => {
+        if (reviewsRequestKey !== this.sellerReviewsRequestKey || sellerId !== this.selectedSellerId) return;
         this.sellerPortalReviews = [];
         this.sellerReviewPager = { totalItems: 0, currentPage: this.sellerReviewPage, numberPerPage: this.reviewPageSize, totalPages: 1 };
+        this.sellerReviewsLoading = false;
       },
     });
   }
