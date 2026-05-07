@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of, forkJoin } from 'rxjs';
-import { delay, map } from 'rxjs/operators';
+import { delay, map, shareReplay, tap } from 'rxjs/operators';
 import {
   Review,
   CreateSiteReviewDto,
@@ -129,9 +129,31 @@ export interface ReviewPageResult {
   statusCounts?: ReviewStatusCounts;
 }
 
+interface CacheEntry<T> {
+  expiresAt: number;
+  value$: Observable<T>;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ReviewService {
+  private readonly dashboardCacheTtlMs = 15_000;
+  private readonly productsCacheTtlMs = 60_000;
+  private productsCache: CacheEntry<ProductCatalogItem[]> | null = null;
+  private reviewSummaryCache: CacheEntry<ReviewSummaryPayload> | null = null;
+  private reviewQueueCache = new Map<number, CacheEntry<Review[]>>();
+  private reviewsPageCache = new Map<string, CacheEntry<ReviewPageResult>>();
+
   constructor(private http: HttpClient) {}
+
+  private isCacheValid<T>(entry: CacheEntry<T> | null | undefined): entry is CacheEntry<T> {
+    return !!entry && entry.expiresAt > Date.now();
+  }
+
+  private invalidateDashboardCaches(): void {
+    this.reviewSummaryCache = null;
+    this.reviewQueueCache.clear();
+    this.reviewsPageCache.clear();
+  }
 
   private mapPipelineStatus(status: string | undefined): Review['pipelineStatus'] {
     if (!status) return 'pending';
@@ -201,7 +223,11 @@ export class ReviewService {
   }
 
   getProducts(): Observable<ProductCatalogItem[]> {
-    return this.http.get<BackendProduct[]>(`${BACKEND_URL}/products`).pipe(
+    if (this.isCacheValid(this.productsCache)) {
+      return this.productsCache.value$;
+    }
+
+    const value$ = this.http.get<BackendProduct[]>(`${BACKEND_URL}/products`).pipe(
       map((products) => products.map((product) => ({
         id: product.id,
         name: product.name,
@@ -213,8 +239,16 @@ export class ReviewService {
         imageUrl: product.image_url ?? null,
         reviewCount: product.review_count,
         reviewAvg: product.review_avg,
-      })))
+      }))),
+      shareReplay(1),
     );
+
+    this.productsCache = {
+      expiresAt: Date.now() + this.productsCacheTtlMs,
+      value$,
+    };
+
+    return value$;
   }
 
   private getReviewDetail(id: string): Observable<Review> {
@@ -274,25 +308,64 @@ export class ReviewService {
     if (params?.search?.trim()) query.set('search', params.search.trim());
     if ((params?.rating ?? 0) > 0) query.set('rating', String(params?.rating));
     if (params?.category?.trim()) query.set('category', params.category.trim());
+    const cacheKey = query.toString();
+    const cached = this.reviewsPageCache.get(cacheKey);
+    if (this.isCacheValid(cached)) {
+      return cached.value$;
+    }
 
-    return this.http.get<BackendAdminReviewPage>(`${BACKEND_URL}/admin/reviews?${query.toString()}`).pipe(
+    const value$ = this.http.get<BackendAdminReviewPage>(`${BACKEND_URL}/admin/reviews?${query.toString()}`).pipe(
       map((payload) => ({
         reviews: payload.data.map((review) => this.mapBackendReview(review)),
         pager: payload.pager,
         summary: payload.summary,
         statusCounts: payload.status_counts,
-      }))
+      })),
+      shareReplay(1),
     );
+
+    this.reviewsPageCache.set(cacheKey, {
+      expiresAt: Date.now() + this.dashboardCacheTtlMs,
+      value$,
+    });
+
+    return value$;
   }
 
   getReviewQueue(limit = 20): Observable<Review[]> {
-    return this.http.get<BackendReviewDetail[]>(`${BACKEND_URL}/admin/reviews/queue?limit=${limit}`).pipe(
-      map((reviews) => reviews.map((review) => this.mapBackendReview(review)))
+    const cached = this.reviewQueueCache.get(limit);
+    if (this.isCacheValid(cached)) {
+      return cached.value$;
+    }
+
+    const value$ = this.http.get<BackendReviewDetail[]>(`${BACKEND_URL}/admin/reviews/queue?limit=${limit}`).pipe(
+      map((reviews) => reviews.map((review) => this.mapBackendReview(review))),
+      shareReplay(1),
     );
+
+    this.reviewQueueCache.set(limit, {
+      expiresAt: Date.now() + this.dashboardCacheTtlMs,
+      value$,
+    });
+
+    return value$;
   }
 
   getReviewSummary(): Observable<ReviewSummaryPayload> {
-    return this.http.get<ReviewSummaryPayload>(`${BACKEND_URL}/admin/reviews/summary`);
+    if (this.isCacheValid(this.reviewSummaryCache)) {
+      return this.reviewSummaryCache.value$;
+    }
+
+    const value$ = this.http.get<ReviewSummaryPayload>(`${BACKEND_URL}/admin/reviews/summary`).pipe(
+      shareReplay(1),
+    );
+
+    this.reviewSummaryCache = {
+      expiresAt: Date.now() + this.dashboardCacheTtlMs,
+      value$,
+    };
+
+    return value$;
   }
 
   getSellerReviews(sellerId: string, page = 1, pageSize = 12, category: string | null = null): Observable<ReviewPageResult> {
@@ -338,6 +411,7 @@ export class ReviewService {
         media_url: item.url,
       })),
     }).pipe(
+      tap(() => this.invalidateDashboardCaches()),
       map((response) => this.mapBackendReview(response.review as BackendReviewDetail))
     );
   }
@@ -351,6 +425,7 @@ export class ReviewService {
       actor: 'frontend-admin',
       reason: 'Published from dashboard',
     }).pipe(
+      tap(() => this.invalidateDashboardCaches()),
       map((review) => ({ id: review.id, isActive: review.is_published }))
     );
   }
@@ -360,6 +435,7 @@ export class ReviewService {
       actor: 'frontend-admin',
       reason: 'Moved back to moderation from dashboard',
     }).pipe(
+      tap(() => this.invalidateDashboardCaches()),
       map((review) => ({ id: review.id, isActive: review.is_published }))
     );
   }
@@ -369,6 +445,7 @@ export class ReviewService {
       actor: 'frontend-admin',
       reason: 'Blocked from dashboard by super admin',
     }).pipe(
+      tap(() => this.invalidateDashboardCaches()),
       map((review) => this.mapBackendReview(review))
     );
   }
@@ -399,7 +476,9 @@ export class ReviewService {
         actor: 'frontend-admin',
         reason: 'Deleted from dashboard',
       },
-    });
+    }).pipe(
+      tap(() => this.invalidateDashboardCaches()),
+    );
   }
 
   deleteReview(id: string): Observable<unknown> {

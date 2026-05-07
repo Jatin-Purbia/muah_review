@@ -709,7 +709,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadProducts();
-    this.loadReviewSummary();
     this.loadQueueReviews();
     this.loadReviews();
   }
@@ -728,7 +727,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.productPage = 1;
         if (!this.selectedSellerId && this.sellers[0]) {
           this.selectedSellerId = this.sellers[0].id;
-          this.loadSellerAnalytics();
+          if (this.isSellerPortal) {
+            this.loadSellerAnalytics();
+          }
         }
       },
       error: () => {
@@ -866,6 +867,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.reviews = payload.reviews;
         this.filteredReviews = payload.reviews;
         this.reviewPager = payload.pager;
+        if (payload.summary) {
+          this.reviewSummary = {
+            total_reviews: payload.summary.total_reviews ?? 0,
+            published_count: payload.summary.published_count ?? 0,
+            unpublished_count: payload.summary.unpublished_count ?? 0,
+            moderation_count: payload.summary.moderation_count ?? 0,
+            blocked_count: payload.summary.blocked_count ?? 0,
+            average_rating: payload.summary.average_rating ?? 0,
+            rating_distribution: payload.summary.rating_distribution ?? [],
+            category_stats: payload.summary.category_stats ?? [],
+          };
+          this.categoryStats = (payload.summary.category_stats || []).filter((stat) => !!stat.category);
+        }
         if (payload.statusCounts) {
           this.statusCounts = payload.statusCounts;
         }
@@ -879,7 +893,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
         if (!this.sellers.find((seller) => seller.id === this.selectedSellerId) && this.sellers[0]) {
           this.selectedSellerId = this.sellers[0].id;
         }
-        this.loadSellerAnalytics();
+        if (this.isSellerPortal && this.selectedSellerId) {
+          this.loadSellerAnalytics();
+        }
         this.loading = false;
       },
       error: () => {
@@ -926,6 +942,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   setPortal(view: PortalView): void {
     this.activePortal = view;
+    this.refreshSellerPortalIfVisible();
   }
 
   togglePipelineAutomation(): void {
@@ -1006,8 +1023,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           : review
         );
         this.loadReviews();
-        this.loadReviewSummary();
-        this.loadSellerAnalytics();
+        this.refreshSellerPortalIfVisible();
         this.showToast(response.isActive ? 'Review published to website.' : 'Review moved back to moderation.', 'success');
       },
       error: () => {
@@ -1045,7 +1061,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       next: () => {
         this.selectedIds.clear();
         this.loadReviews();
-        this.loadReviewSummary();
         this.loadQueueReviews();
         this.bulkLoading = false;
         this.activeBulkAction = null;
@@ -1067,7 +1082,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       next: () => {
         this.selectedIds.clear();
         this.loadReviews();
-        this.loadReviewSummary();
         this.loadQueueReviews();
         this.bulkLoading = false;
         this.activeBulkAction = null;
@@ -1090,7 +1104,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.reviews = this.reviews.filter((review) => !ids.includes(review.id));
         this.selectedIds.clear();
         this.applyFilters();
-        this.loadReviewSummary();
         this.loadQueueReviews();
         this.bulkLoading = false;
         this.activeBulkAction = null;
@@ -1108,7 +1121,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.reviewService.deleteReview(review.id).subscribe({
       next: () => {
         this.loadReviews();
-        this.loadReviewSummary();
         this.loadQueueReviews();
         this.showToast('Review deleted successfully.', 'success');
       },
@@ -1137,8 +1149,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.reviews = [enrichedReview, ...this.reviews.filter((review) => review.id !== enrichedReview.id)];
         this.processingReviewIds.add(enrichedReview.id);
         this.applyFilters();
-        this.loadReviewSummary();
-        this.loadSellerAnalytics();
+        this.refreshSellerPortalIfVisible();
 
         this.reviewSubmitting = false;
         this.showModal = false;
@@ -1266,7 +1277,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           : item
         );
         this.applyFilters();
-        this.loadSellerAnalytics();
+        this.refreshSellerPortalIfVisible();
 
         if (review.pipelineStatus === 'pending' && attempt < 20) {
           const timer = setTimeout(() => this.startProcessingPoll(reviewId, attempt + 1), 1200);
@@ -1318,9 +1329,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
         });
         this.selectedIds.clear();
         this.loadReviews();
-        this.loadReviewSummary();
         this.loadQueueReviews();
-        this.loadSellerAnalytics();
+        this.refreshSellerPortalIfVisible();
         this.bulkLoading = false;
         this.activeBulkAction = null;
         this.showToast(`${blockedIds.size} review(s) blocked.`, 'success');
@@ -1347,9 +1357,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
           : item
         );
         this.loadReviews();
-        this.loadReviewSummary();
         this.loadQueueReviews();
-        this.loadSellerAnalytics();
+        this.refreshSellerPortalIfVisible();
         this.showToast('Review blocked by super admin.', 'success');
       },
       error: () => {
@@ -1371,5 +1380,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
       next: (reviews) => { this.queueReviews = reviews; },
       error: () => { this.queueReviews = []; },
     });
+  }
+
+  private refreshSellerPortalIfVisible(): void {
+    if (this.isSellerPortal && this.selectedSellerId) {
+      this.loadSellerAnalytics();
+    }
   }
 }

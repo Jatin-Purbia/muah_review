@@ -65,9 +65,11 @@ def get_seller_analytics_service() -> SellerAnalyticsService:
 
 @lru_cache
 def get_product_catalog_service() -> ProductCatalogService:
-    return ProductCatalogService(catalog_path=get_settings_path())
-
-
-def get_settings_path():
-    from pathlib import Path
-    return Path(__file__).resolve().parents[3] / "products.json"
+    settings = get_settings()
+    return ProductCatalogService(
+        products_api_url=settings.products_api_url,
+        categories_api_url=settings.categories_api_url,
+        categories_ttl_seconds=settings.product_categories_cache_ttl_seconds,
+        products_ttl_seconds=settings.product_catalog_cache_ttl_seconds,
+        page_size=settings.product_catalog_page_size,
+    )

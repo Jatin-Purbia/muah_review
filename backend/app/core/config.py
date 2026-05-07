@@ -1,8 +1,7 @@
 from functools import lru_cache
-from pathlib import Path
-
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pathlib import Path
 
 ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
@@ -24,6 +23,11 @@ class Settings(BaseSettings):
     astra_db_enabled: bool = False
     astra_db_endpoint: str | None = None
     astra_db_token: str | None = None
+    products_api_url: str = "https://muahstore-api-dev-atcjdsdnfehtgucx.uksouth-01.azurewebsites.net/products"
+    categories_api_url: str = "https://muahstore-api-dev-atcjdsdnfehtgucx.uksouth-01.azurewebsites.net/categories/available"
+    product_categories_cache_ttl_seconds: int = 600
+    product_catalog_cache_ttl_seconds: int = 180
+    product_catalog_page_size: int = 500
 
     model_config = SettingsConfigDict(env_file=ENV_FILE, env_prefix="REVIEW_", extra="ignore")
 

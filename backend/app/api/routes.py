@@ -23,6 +23,8 @@ def _resolve_category(value: str) -> str | None:
 
 
 _BLOCKED_STATUS_VALUES = {"flagged", "failed", "rejected"}
+_ADMIN_SUMMARY_CACHE: dict[str, object] = {"value": None, "expires_at": datetime.min.replace(tzinfo=timezone.utc)}
+_ADMIN_QUEUE_CACHE: dict[tuple[int], dict[str, object]] = {}
 
 
 def _status_counts_from_documents(documents: list[dict]) -> dict:
@@ -68,9 +70,6 @@ def _status_counts_via_repo(repo: ReviewRepository, base_filter: dict) -> dict:
         "moderation": moderation,
         "blocked": blocked,
     }
-_ADMIN_SUMMARY_CACHE: dict[str, object] = {"value": None, "expires_at": datetime.min.replace(tzinfo=timezone.utc)}
-
-
 def _review_documents(repo: ReviewRepository) -> list[dict]:
     if hasattr(repo, "list_review_documents"):
         return repo.list_review_documents()
@@ -94,6 +93,74 @@ def _cached_admin_summary(repo: ReviewRepository) -> dict:
 def _reset_admin_summary_cache() -> None:
     _ADMIN_SUMMARY_CACHE["value"] = None
     _ADMIN_SUMMARY_CACHE["expires_at"] = datetime.min.replace(tzinfo=timezone.utc)
+
+
+def _cached_admin_queue(repo: ReviewRepository, products: ProductCatalogService, limit: int) -> list[dict]:
+    now = datetime.now(timezone.utc)
+    cache_key = (limit,)
+    cache_entry = _ADMIN_QUEUE_CACHE.get(cache_key)
+    if cache_entry:
+      expires_at = cache_entry.get("expires_at")
+      if isinstance(expires_at, datetime) and expires_at > now:
+          return cache_entry.get("value", [])
+
+    product_map = products.product_map()
+    if hasattr(repo, "find_review_documents"):
+        queue_documents: list[dict] = []
+        for status_value in ("pending_manual_review", "flagged", "failed"):
+            remaining = max(limit - len(queue_documents), 0)
+            if remaining == 0:
+                break
+            queue_documents.extend(
+                repo.find_review_documents(
+                    {"review.status": status_value},
+                    projection={
+                        "review": 1,
+                        "text_analysis.overall_score": 1,
+                        "text_analysis.aspect_json": 1,
+                        "fusion_decision.final_score": 1,
+                        "fusion_decision.decision": 1,
+                    },
+                    limit=remaining,
+                )
+            )
+        queue_documents = sorted(
+            queue_documents,
+            key=lambda document: document.get("review", {}).get("created_at", ""),
+            reverse=True,
+        )[:limit]
+        value = [_review_payload_from_document(document, product_map) for document in queue_documents]
+    else:
+        documents = _review_documents(repo)
+        if documents:
+            queue_documents = [
+                document for document in documents
+                if document.get("review", {}).get("status") in {"pending_manual_review", "flagged", "failed"}
+            ]
+            queue_documents = sorted(
+                queue_documents,
+                key=lambda document: document.get("review", {}).get("created_at", ""),
+                reverse=True,
+            )[:limit]
+            value = [_review_payload_from_document(document, product_map) for document in queue_documents]
+        else:
+            queue_reviews = [
+                review for review in repo.list_reviews()
+                if review.status.value in {"pending_manual_review", "flagged", "failed"}
+            ]
+            queue_reviews = sorted(queue_reviews, key=lambda review: review.created_at, reverse=True)[:limit]
+            value = [_review_detail_payload(review, repo, products) for review in queue_reviews]
+
+    _ADMIN_QUEUE_CACHE[cache_key] = {
+        "value": value,
+        "expires_at": now + timedelta(seconds=20),
+    }
+    return value
+
+
+def _reset_admin_dashboard_cache() -> None:
+    _reset_admin_summary_cache()
+    _ADMIN_QUEUE_CACHE.clear()
 
 
 def _review_payload_from_document(document: dict, product_map: dict[str, dict]) -> dict:
@@ -216,7 +283,7 @@ def submit_review(
     workflow: ReviewWorkflowService = Depends(get_review_workflow_service),
 ) -> dict:
     review = workflow.submit_review(payload, background_tasks)
-    _reset_admin_summary_cache()
+    _reset_admin_dashboard_cache()
     return {
         "review": review.model_dump(),
         "message": "Review accepted and queued for multimodal processing.",
@@ -356,6 +423,7 @@ def get_admin_reviews(
                 "numberPerPage": page_size,
                 "totalPages": total_pages,
             },
+            "summary": _cached_admin_summary(repo),
             "status_counts": status_counts,
         }
 
@@ -488,52 +556,7 @@ def get_admin_review_queue(
     products: ProductCatalogService = Depends(get_product_catalog_service),
     limit: int = Query(default=20, ge=1, le=50),
 ) -> list[dict]:
-    product_map = products.product_map()
-    if hasattr(repo, "find_review_documents"):
-        queue_documents: list[dict] = []
-        for status_value in ("pending_manual_review", "flagged", "failed"):
-            remaining = max(limit - len(queue_documents), 0)
-            if remaining == 0:
-                break
-            queue_documents.extend(
-                repo.find_review_documents(
-                    {"review.status": status_value},
-                    projection={
-                        "review": 1,
-                        "text_analysis.overall_score": 1,
-                        "text_analysis.aspect_json": 1,
-                        "fusion_decision.final_score": 1,
-                        "fusion_decision.decision": 1,
-                    },
-                    limit=remaining,
-                )
-            )
-        queue_documents = sorted(
-            queue_documents,
-            key=lambda document: document.get("review", {}).get("created_at", ""),
-            reverse=True,
-        )[:limit]
-        return [_review_payload_from_document(document, product_map) for document in queue_documents]
-
-    documents = _review_documents(repo)
-    if documents:
-        queue_documents = [
-            document for document in documents
-            if document.get("review", {}).get("status") in {"pending_manual_review", "flagged", "failed"}
-        ]
-        queue_documents = sorted(
-            queue_documents,
-            key=lambda document: document.get("review", {}).get("created_at", ""),
-            reverse=True,
-        )[:limit]
-        return [_review_payload_from_document(document, product_map) for document in queue_documents]
-
-    queue_reviews = [
-        review for review in repo.list_reviews()
-        if review.status.value in {"pending_manual_review", "flagged", "failed"}
-    ]
-    queue_reviews = sorted(queue_reviews, key=lambda review: review.created_at, reverse=True)[:limit]
-    return [_review_detail_payload(review, repo, products) for review in queue_reviews]
+    return _cached_admin_queue(repo, products, limit)
 
 
 @router.get("/admin/reviews/summary")
@@ -549,7 +572,7 @@ def admin_publish_review(
     request: ManualModerationRequest,
     workflow: ReviewWorkflowService = Depends(get_review_workflow_service),
 ) -> dict:
-    _reset_admin_summary_cache()
+    _reset_admin_dashboard_cache()
     return workflow.publish_review(review_id, request).model_dump()
 
 
@@ -559,7 +582,7 @@ def admin_reject_review(
     request: ManualModerationRequest,
     workflow: ReviewWorkflowService = Depends(get_review_workflow_service),
 ) -> dict:
-    _reset_admin_summary_cache()
+    _reset_admin_dashboard_cache()
     return workflow.reject_review(review_id, request).model_dump()
 
 
@@ -569,7 +592,7 @@ def admin_unpublish_review(
     request: ManualModerationRequest,
     workflow: ReviewWorkflowService = Depends(get_review_workflow_service),
 ) -> dict:
-    _reset_admin_summary_cache()
+    _reset_admin_dashboard_cache()
     return workflow.unpublish_review(review_id, request).model_dump()
 
 
@@ -579,7 +602,7 @@ def admin_delete_review(
     request: ManualModerationRequest,
     workflow: ReviewWorkflowService = Depends(get_review_workflow_service),
 ) -> dict:
-    _reset_admin_summary_cache()
+    _reset_admin_dashboard_cache()
     return workflow.delete_review(review_id, request)
 
 
@@ -604,4 +627,5 @@ def process_review_internal(
     workflow: ReviewWorkflowService = Depends(get_review_workflow_service),
 ) -> dict:
     workflow.process_review(review_id)
+    _reset_admin_dashboard_cache()
     return {"status": "processed", "review_id": review_id}
